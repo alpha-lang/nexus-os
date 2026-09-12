@@ -1,0 +1,249 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import ConfirmDialog from '../../../components/ConfirmDialog';
+import { Modal, Button, Badge, PageHeader, FormField, Input, Select, Textarea } from '../../../components/ui';
+
+const ORG_TYPES = [
+  { value: 'COMMERCE', label: 'Commerce' },
+  { value: 'HOTEL', label: 'Hôtel' },
+  { value: 'ONG', label: 'ONG' },
+  { value: 'MICROFINANCE', label: 'Microfinance' },
+  { value: 'BANQUE', label: 'Banque' },
+  { value: 'INTERNE', label: 'Interne (Nexus Corp)' },
+];
+
+export default function OrganizationsPage() {
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [orgToDelete, setOrgToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [type, setType] = useState('COMMERCE');
+  const [city, setCity] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [description, setDescription] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const isOwner = typeof window !== 'undefined' && localStorage.getItem('isOwner') === 'true';
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then((data) => setOrganizations(Array.isArray(data) ? data : []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+    const token = localStorage.getItem('token');
+    const method = editing ? 'PATCH' : 'POST';
+    const url = editing ? `/api/organizations/${editing.id}` : '/api/organizations';
+    const res = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, slug, type, city, email, phone, description }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setName(''); setSlug(''); setType('COMMERCE'); setCity(''); setEmail(''); setPhone(''); setDescription('');
+      setShowModal(false); setEditing(null);
+      const updated = await fetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json());
+      setOrganizations(Array.isArray(updated) ? updated : []);
+    } else {
+      const data = await res.json();
+      setError(data.message || 'Erreur');
+    }
+  }
+
+  async function confirmDelete() {
+    if (!orgToDelete) return;
+    setIsDeleting(true);
+    const token = localStorage.getItem('token');
+    await fetch(`/api/organizations/${orgToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    setOrganizations(organizations.filter((org) => org.id !== orgToDelete.id));
+    setOrgToDelete(null); setIsDeleting(false);
+  }
+
+  function openEdit(org: any) {
+    setEditing(org);
+    setName(org.name); setSlug(org.slug); setType(org.type || 'COMMERCE');
+    setCity(org.city || ''); setEmail(org.email || ''); setPhone(org.phone || ''); setDescription(org.description || '');
+    setShowModal(true);
+  }
+
+  if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Organisations"
+        subtitle={`${organizations.length} organisation${organizations.length > 1 ? 's' : ''}`}
+        actions={
+          isOwner && (
+            <Button
+              onClick={() => { setEditing(null); setName(''); setSlug(''); setType('COMMERCE'); setCity(''); setEmail(''); setPhone(''); setDescription(''); setShowModal(true); }}
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+              }
+            >
+              Ajouter
+            </Button>
+          )
+        }
+      />
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-gray-200">
+              <tr>
+                <th className="p-4 font-semibold text-slate-600">Nom</th>
+                <th className="p-4 font-semibold text-slate-600">Type</th>
+                <th className="p-4 font-semibold text-slate-600">Ville</th>
+                <th className="p-4 font-semibold text-slate-600">Contact</th>
+                <th className="p-4 font-semibold text-slate-600">Statut</th>
+                {isOwner && <th className="p-4 font-semibold text-slate-600 text-center">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {organizations.map((org) => (
+                <tr key={org.id} className="hover:bg-teal-50/40 transition">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-linear-to-br from-blue-500 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0">
+                        {org.name?.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-medium text-slate-900">{org.name}</div>
+                        <div className="text-xs text-slate-400 font-mono">{org.slug}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <Badge variant="info">{org.type || '—'}</Badge>
+                  </td>
+                  <td className="p-4 text-slate-600">{org.city || '—'}</td>
+                  <td className="p-4 text-slate-600 text-xs">
+                    <div>{org.email || '—'}</div>
+                    <div className="text-slate-400">{org.phone || ''}</div>
+                  </td>
+                  <td className="p-4">
+                    <Badge variant={org.status === 'ACTIVE' ? 'success' : 'danger'}>{org.status || 'ACTIVE'}</Badge>
+                  </td>
+                  {isOwner && (
+                    <td className="p-4 text-center">
+                      <button onClick={() => openEdit(org)} className="text-blue-600 hover:underline mr-2 text-sm">Modifier</button>
+                      <button onClick={() => setOrgToDelete(org)} className="text-red-600 hover:underline text-sm">Supprimer</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {organizations.length === 0 && (
+                <tr><td colSpan={6} className="p-8 text-center text-slate-400">Aucune organisation</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal
+        open={showModal}
+        onClose={() => { setShowModal(false); setEditing(null); }}
+        title={editing ? 'Modifier l\'organisation' : 'Nouvelle organisation'}
+        subtitle={editing ? editing.name : 'Créez un nouveau tenant'}
+        icon={<span className="text-2xl">🏢</span>}
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setShowModal(false); setEditing(null); }}>Annuler</Button>
+            <button
+              type="submit"
+              form="org-form"
+              disabled={saving}
+              className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50"
+            >
+              {saving ? 'Enregistrement...' : editing ? 'Enregistrer' : 'Créer'}
+            </button>
+          </div>
+        }
+      >
+        <form id="org-form" onSubmit={save} className="space-y-6">
+          {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
+
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-4 bg-linear-to-b from-blue-500 to-teal-500 rounded-full"></div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Identité</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Nom" required>
+                <Input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nirina Hotel" required />
+              </FormField>
+              <FormField label="Slug" required hint="Identifiant unique">
+                <Input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="nirina-hotel" className="font-mono" required />
+              </FormField>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-4 bg-linear-to-b from-blue-500 to-teal-500 rounded-full"></div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Type & localisation</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Type">
+                <Select value={type} onChange={(e) => setType(e.target.value)}>
+                  {ORG_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Ville">
+                <Input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Antananarivo" />
+              </FormField>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-4 bg-linear-to-b from-blue-500 to-teal-500 rounded-full"></div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Email">
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@nirina.com" />
+              </FormField>
+              <FormField label="Téléphone">
+                <Input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+261 34 12 345 67" />
+              </FormField>
+            </div>
+          </div>
+
+          <FormField label="Description">
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+          </FormField>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!orgToDelete}
+        title="Supprimer l'organisation"
+        message={`Voulez-vous vraiment supprimer "${orgToDelete?.name}" ? Toutes les données seront perdues.`}
+        onClose={() => setOrgToDelete(null)}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+    </div>
+  );
+}

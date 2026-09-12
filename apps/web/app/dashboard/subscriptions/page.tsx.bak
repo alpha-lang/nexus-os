@@ -1,0 +1,243 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Modal, Button, Badge, PageHeader, FormField, Input, Select } from '../../../components/ui';
+
+export default function SubscriptionsPage() {
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [availableOrganizations, setAvailableOrganizations] = useState<any[]>([]);
+  const [modules, setModules] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [organizationId, setOrganizationId] = useState('');
+  const [billingPeriod, setBillingPeriod] = useState('MONTHLY');
+  const [status, setStatus] = useState('TRIAL');
+  const [endDate, setEndDate] = useState('');
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [maxStorage, setMaxStorage] = useState('500');
+  const [quotaPrice, setQuotaPrice] = useState('');
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+
+  async function load() {
+    const res = await fetch('/api/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    setSubscriptions(Array.isArray(data) ? data : []);
+  }
+
+  useEffect(() => {
+    load().catch(console.error).finally(() => setLoading(false));
+  }, []);
+
+  async function loadAvailableOrganizations() {
+    const res = await fetch('/api/subscriptions/available-organizations', { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    setAvailableOrganizations(Array.isArray(data) ? data : []);
+  }
+
+  async function loadModulesForType(type: string) {
+    const res = await fetch(`/api/modules?type=${type}`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    setModules(Array.isArray(data) ? data : []);
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null); setSaving(true);
+    const res = await fetch('/api/subscriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ organizationId, billingPeriod, status, endDate, moduleIds: selectedModules, maxStorage: parseFloat(maxStorage), quotaPrice: parseFloat(quotaPrice) }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setShowModal(false);
+      setOrganizationId(''); setBillingPeriod('MONTHLY'); setStatus('TRIAL'); setEndDate(''); setSelectedModules([]); setMaxStorage('500'); setQuotaPrice('');
+      await load();
+    } else {
+      const data = await res.json();
+      setError(data.message || 'Erreur');
+    }
+  }
+
+  async function changeStatus(id: string, action: string) {
+    await fetch(`/api/subscriptions/${id}/${action}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await load();
+  }
+
+  async function toggleModule(subId: string, modId: string, isActive: boolean) {
+    const action = isActive ? 'deactivate-module' : 'activate-module';
+    await fetch(`/api/subscriptions/${subId}/${action}/${modId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await load();
+  }
+
+  function toggleModuleSelection(id: string) {
+    setSelectedModules((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  const totalModulesPrice = selectedModules.reduce((s, id) => s + (modules.find((m) => m.id === id)?.price || 0), 0);
+  const totalSelected = totalModulesPrice + (parseFloat(quotaPrice) || 0);
+
+  function computePrice(sub: any): number {
+    if (sub.status !== 'ACTIVE') return 0;
+    return (sub.activeModules || []).filter((am: any) => am.isActive).reduce((s: number, am: any) => s + (am.module?.price || 0), 0);
+  }
+
+  if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Abonnements"
+        subtitle={`${subscriptions.length} abonnement${subscriptions.length > 1 ? 's' : ''}`}
+        actions={
+          <Button onClick={() => { loadAvailableOrganizations(); setShowModal(true); }} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>}>
+            Nouvel abonnement
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {subscriptions.map((sub) => {
+          const price = computePrice(sub);
+          const maxStorage = sub.organization?.storageQuota?.maxStorage || 500;
+          return (
+            <div key={sub.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-bold text-slate-900">{sub.organization?.name}</h3>
+                  <p className="text-xs text-slate-500">{sub.billingPeriod}</p>
+                </div>
+                <Badge variant={sub.status === 'ACTIVE' ? 'success' : sub.status === 'TRIAL' ? 'info' : 'danger'}>{sub.status}</Badge>
+              </div>
+
+              <div className="text-sm text-slate-600 space-y-1 mb-4">
+                <p>Début : {new Date(sub.startDate).toLocaleDateString('fr-FR')}</p>
+                <p>Fin : {sub.endDate ? new Date(sub.endDate).toLocaleDateString('fr-FR') : '—'}</p>
+                <p>Quota : {maxStorage} Mo</p>
+              </div>
+
+              <div className="space-y-2 mb-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Modules</p>
+                {sub.activeModules?.length > 0 ? sub.activeModules.map((am: any) => (
+                  <div key={am.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                    <span className="text-sm text-slate-700">{am.module?.name}</span>
+                    <span className="text-xs text-slate-500">{am.module?.price ? am.module.price.toLocaleString('fr-FR') + ' Ar' : 'Gratuit'}</span>
+                    <button onClick={() => toggleModule(sub.id, am.moduleId, am.isActive)} className="text-xs text-blue-600 hover:underline">
+                      {am.isActive ? 'Désactiver' : 'Activer'}
+                    </button>
+                  </div>
+                )) : <p className="text-sm text-slate-400">Aucun module</p>}
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between mb-4">
+                <span className="text-sm text-slate-600">{sub.status === 'TRIAL' ? 'Essai' : sub.status === 'ACTIVE' ? 'Prix total' : 'Statut'}</span>
+                {sub.status === 'ACTIVE' ? (
+                  <span className="text-lg font-bold text-slate-900">{price.toLocaleString('fr-FR')} Ar / mois</span>
+                ) : sub.status === 'TRIAL' ? (
+                  <span className="text-lg font-bold text-blue-600">Gratuit</span>
+                ) : (
+                  <span className="text-lg font-bold text-slate-400">—</span>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {(sub.status === 'TRIAL' || sub.status === 'SUSPENDED' || sub.status === 'EXPIRED') && (
+                  <button onClick={() => changeStatus(sub.id, 'activate')} className="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100">
+                    {sub.status === 'TRIAL' ? 'Convertir en payant' : sub.status === 'EXPIRED' ? 'Renouveler' : 'Activer'}
+                  </button>
+                )}
+                {(sub.status === 'ACTIVE' || sub.status === 'TRIAL') && (
+                  <button onClick={() => changeStatus(sub.id, 'suspend')} className="text-xs bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded-lg hover:bg-yellow-100">Suspendre</button>
+                )}
+                {(sub.status === 'ACTIVE' || sub.status === 'SUSPENDED') && (
+                  <button onClick={() => changeStatus(sub.id, 'expire')} className="text-xs bg-red-50 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-100">Expirer</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {subscriptions.length === 0 && <div className="col-span-full text-center py-10 text-slate-400">Aucun abonnement</div>}
+      </div>
+
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title="Nouvel abonnement"
+        subtitle="Configurez un abonnement pour un tenant"
+        icon={<span className="text-2xl">📋</span>}
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Annuler</Button>
+            <button type="submit" form="sub-form" disabled={saving} className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50">
+              {saving ? 'Enregistrement...' : 'Créer'}
+            </button>
+          </div>
+        }
+      >
+        <form id="sub-form" onSubmit={save} className="space-y-6">
+          {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
+
+          <FormField label="Organisation" required>
+            <Select value={organizationId} onChange={(e) => { setOrganizationId(e.target.value); const org = availableOrganizations.find((o) => o.id === e.target.value); if (org) loadModulesForType(org.type); }} required>
+              <option value="">— Choisir —</option>
+              {availableOrganizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </Select>
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Période">
+              <Select value={billingPeriod} onChange={(e) => setBillingPeriod(e.target.value)}>
+                <option value="MONTHLY">Mensuel</option>
+                <option value="QUARTERLY">Trimestriel</option>
+                <option value="ANNUAL">Annuel</option>
+              </Select>
+            </FormField>
+            <FormField label="Statut">
+              <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="TRIAL">Essai (gratuit)</option>
+                <option value="ACTIVE">Actif (facturé)</option>
+                <option value="SUSPENDED">Suspendu</option>
+                <option value="EXPIRED">Expiré</option>
+              </Select>
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Quota max (Mo)">
+              <Input type="number" value={maxStorage} onChange={(e) => setMaxStorage(e.target.value)} />
+            </FormField>
+            <FormField label="Prix du quota (Ar)">
+              <Input type="number" value={quotaPrice} onChange={(e) => setQuotaPrice(e.target.value)} placeholder="10000" />
+            </FormField>
+          </div>
+
+          <FormField label="Date de fin">
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </FormField>
+
+          <FormField label="Modules activés">
+            <div className="border border-gray-200 rounded-xl p-3 space-y-2 max-h-48 overflow-y-auto">
+              {modules.map((m) => (
+                <label key={m.id} className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={selectedModules.includes(m.id)} onChange={() => toggleModuleSelection(m.id)} className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500" />
+                  <span className="text-sm text-slate-700">{m.name}</span>
+                  <span className="ml-auto text-xs text-slate-500">{m.price ? m.price.toLocaleString('fr-FR') + ' Ar' : 'Gratuit'}</span>
+                </label>
+              ))}
+              {modules.length === 0 && <p className="text-sm text-slate-400 text-center py-2">Sélectionnez d'abord une organisation</p>}
+            </div>
+          </FormField>
+
+          <div className="bg-slate-50 rounded-xl p-3 text-sm text-slate-600 flex justify-between">
+            <span>Total</span>
+            <strong className="text-slate-900">{totalSelected.toLocaleString('fr-FR')} Ar</strong>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}

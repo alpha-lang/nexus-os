@@ -1,0 +1,179 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import ConfirmDialog from '../../../components/ConfirmDialog';
+import { Modal, Button, Badge, PageHeader, FormField, Input, Select } from '../../../components/ui';
+
+export default function TenantAdminsPage() {
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [adminToDelete, setAdminToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [organizationId, setOrganizationId] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const isOwner = typeof window !== 'undefined' && localStorage.getItem('isOwner') === 'true';
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+    ])
+      .then(([users, orgs]) => {
+        setAdmins(Array.isArray(users) ? users.filter((u: any) => u.role === 'ADMIN') : []);
+        setOrganizations(Array.isArray(orgs) ? orgs : []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null); setSaving(true);
+    const method = editing ? 'PATCH' : 'POST';
+    const url = editing ? `/api/users/${editing.id}` : '/api/users';
+    const res = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name, role: 'ADMIN', organizationId, password }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setEmail(''); setPassword(''); setName(''); setOrganizationId(''); setShowModal(false); setEditing(null);
+      const updated = await fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json());
+      setAdmins(Array.isArray(updated) ? updated.filter((u: any) => u.role === 'ADMIN') : []);
+    } else {
+      const data = await res.json();
+      setError(data.message || 'Erreur');
+    }
+  }
+
+  async function confirmDelete() {
+    if (!adminToDelete) return;
+    setIsDeleting(true);
+    await fetch(`/api/users/${adminToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    setAdmins(admins.filter((a) => a.id !== adminToDelete.id));
+    setAdminToDelete(null); setIsDeleting(false);
+  }
+
+  function openEdit(a: any) {
+    setEditing(a); setEmail(a.email); setName(a.name || ''); setOrganizationId(a.organizationId || ''); setPassword(''); setShowModal(true);
+  }
+
+  if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Admins des Tenants"
+        subtitle={`${admins.length} administrateur${admins.length > 1 ? 's' : ''}`}
+        actions={
+          isOwner && (
+            <Button
+              onClick={() => { setEditing(null); setEmail(''); setPassword(''); setName(''); setOrganizationId(''); setShowModal(true); }}
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>}
+            >
+              Ajouter un admin
+            </Button>
+          )
+        }
+      />
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-gray-200">
+              <tr>
+                <th className="p-4 font-semibold text-slate-600">Nom</th>
+                <th className="p-4 font-semibold text-slate-600">Email</th>
+                <th className="p-4 font-semibold text-slate-600">Organisation</th>
+                <th className="p-4 font-semibold text-slate-600">Statut</th>
+                {isOwner && <th className="p-4 font-semibold text-slate-600 text-center">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {admins.map((a) => (
+                <tr key={a.id} className="hover:bg-teal-50/40 transition">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-linear-to-br from-blue-500 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                        {a.name?.charAt(0) || a.email?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="font-medium text-slate-900">{a.name || '—'}</div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-slate-600">{a.email}</td>
+                  <td className="p-4 text-slate-600">{a.organization?.name || '—'}</td>
+                  <td className="p-4"><Badge variant={a.isActive ? 'success' : 'danger'}>{a.isActive ? 'Actif' : 'Inactif'}</Badge></td>
+                  {isOwner && (
+                    <td className="p-4 text-center">
+                      <button onClick={() => openEdit(a)} className="text-blue-600 hover:underline mr-2 text-sm">Modifier</button>
+                      <button onClick={() => setAdminToDelete(a)} className="text-red-600 hover:underline text-sm">Supprimer</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {admins.length === 0 && (
+                <tr><td colSpan={5} className="p-8 text-center text-slate-400">Aucun admin</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal
+        open={showModal}
+        onClose={() => { setShowModal(false); setEditing(null); }}
+        title={editing ? 'Modifier l\'admin' : 'Nouvel admin de tenant'}
+        subtitle={editing ? editing.email : 'Créez un administrateur pour une organisation'}
+        icon={<span className="text-2xl">🛡️</span>}
+        size="md"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setShowModal(false); setEditing(null); }}>Annuler</Button>
+            <button type="submit" form="admin-form" disabled={saving} className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50">
+              {saving ? 'Enregistrement...' : editing ? 'Enregistrer' : 'Créer'}
+            </button>
+          </div>
+        }
+      >
+        <form id="admin-form" onSubmit={save} className="space-y-4">
+          {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
+          <FormField label="Email" required>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@organisation.com" required />
+          </FormField>
+          <FormField label={editing ? 'Mot de passe (laisser vide)' : 'Mot de passe'} required={!editing}>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+          </FormField>
+          <FormField label="Nom">
+            <Input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+          </FormField>
+          <FormField label="Organisation" required>
+            <Select value={organizationId} onChange={(e) => setOrganizationId(e.target.value)} required>
+              <option value="">— Choisir —</option>
+              {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </Select>
+          </FormField>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!adminToDelete}
+        title="Supprimer l'admin"
+        message={`Voulez-vous vraiment supprimer ${adminToDelete?.name || adminToDelete?.email} ?`}
+        onClose={() => setAdminToDelete(null)}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+    </div>
+  );
+}

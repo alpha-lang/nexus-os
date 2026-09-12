@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* ═══ Scrollbar custom POS ═══ */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+
+
+/* ═══════════════════════════════════════════════
+   Lisibilité des champs — dans @layer base pour
+   que les utilitaires Tailwind (text-white, etc.)
+   puissent toujours surcharger.
+   ═══════════════════════════════════════════════ */
+@layer base {
+  input, select, textarea {
+    font-weight: 500;
+  }
+
+  input:not([class*="text-"]),
+  select:not([class*="text-"]),
+  textarea:not([class*="text-"]) {
+    color: #0f172a;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+  }
+
+  select option {
+    color: #0f172a;
+    background: #ffffff;
+  }
+
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    color: #64748b;
+    background: #f1f5f9;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   Inputs date — forcer texte lisible
+   (le format jj/mm/aaaa est rendu dans un shadow DOM
+   qui n'herite pas de color: du input parent)
+   ═══════════════════════════════════════════════ */
+@layer base {
+  input[type="date"]::-webkit-datetime-edit {
+    color: #0f172a;
+  }
+  input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    color: #0f172a;
+  }
+  input[type="date"]::-webkit-datetime-edit-text {
+    color: #64748b;
+    padding: 0 2px;
+  }
+  input[type="date"]::-webkit-datetime-edit-month-field,
+  input[type="date"]::-webkit-datetime-edit-day-field,
+  input[type="date"]::-webkit-datetime-edit-year-field {
+    color: #0f172a;
+  }
+  /* Etat vide : placeholder gris clair lisible */
+  input[type="date"]:invalid::-webkit-datetime-edit,
+  input[type="date"]:not(:focus):not(:valid)::-webkit-datetime-edit {
+    color: #94a3b8;
+  }
+  /* Icone calendrier */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    cursor: pointer;
+    filter: invert(0);
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 0.8;
+  }
+  /* Firefox */
+  input[type="date"] {
+    color-scheme: light;
+  }
+  input[type="date"]:invalid {
+    color: #94a3b8;
+  }
+}

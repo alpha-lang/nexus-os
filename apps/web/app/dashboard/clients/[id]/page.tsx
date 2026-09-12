@@ -1,0 +1,879 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import ConfirmDialog from '../../../../components/ConfirmDialog';
+import { Modal, Button, Badge, FormField, Input } from '../../../../components/ui';
+
+const STATUS_META: Record<string, { label: string; variant: any; icon: string }> = {
+  PENDING: { label: 'En attente', variant: 'warning', icon: '⏳' },
+  CONFIRMED: { label: 'Confirmée', variant: 'info', icon: '✅' },
+  CHECKED_IN: { label: 'Check-in', variant: 'success', icon: '🛎️' },
+  CHECKED_OUT: { label: 'Check-out', variant: 'neutral', icon: '👋' },
+  CANCELLED: { label: 'Annulée', variant: 'danger', icon: '❌' },
+  NO_SHOW: { label: 'No-show', variant: 'warning', icon: '🚫' },
+};
+
+const PREDEFINED_TAGS = [
+  { id: 'VIP', label: 'VIP', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+  )},
+  { id: 'FIDELE', label: 'Fidèle', color: 'bg-purple-100 text-purple-800 border-purple-300', icon: (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+  )},
+  { id: 'PREMIUM', label: 'Premium', color: 'bg-teal-100 text-teal-800 border-teal-300', icon: (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2l-4 8 10 12L22 10 18 2H6z"/></svg>
+  )},
+  { id: 'NOUVEAU', label: 'Nouveau', color: 'bg-blue-100 text-blue-800 border-blue-300', icon: (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.09 6.26L20 9.27l-4.91 3.87L16.18 20 12 16.77 7.82 20l1.09-6.86L4 9.27l5.91-1.01L12 2z"/></svg>
+  )},
+  { id: 'A_RISQUE', label: 'À risque', color: 'bg-orange-100 text-orange-800 border-orange-300', icon: (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+  )},
+  { id: 'BLACKLISTE', label: 'Blacklisté', color: 'bg-red-100 text-red-800 border-red-300', icon: (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9A7.902 7.902 0 014 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1A7.902 7.902 0 0120 12c0 4.42-3.58 8-8 8z"/></svg>
+  )},
+];
+
+function parseTags(csv: string | null | undefined): string[] {
+  if (!csv) return [];
+  return csv.split(',').map((t) => t.trim()).filter(Boolean);
+}
+
+function getTagMeta(tagId: string) {
+  return PREDEFINED_TAGS.find((t) => t.id === tagId) || {
+    id: tagId,
+    label: tagId,
+    color: 'bg-slate-100 text-slate-700 border-slate-300',
+    icon: (
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42z"/>
+      </svg>
+    ),
+  };
+}
+
+export default function CustomerDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
+
+  const [customer, setCustomer] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'fiche' | 'historique' | 'reservations' | 'sales' | 'notes' | 'documents'>('fiche');
+  const [timelineFilter, setTimelineFilter] = useState<string>('ALL');
+
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [noteContent, setNoteContent] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [docName, setDocName] = useState('');
+  const [docUrl, setDocUrl] = useState('');
+  const [docType, setDocType] = useState('');
+  const [docToDelete, setDocToDelete] = useState<any>(null);
+  const [noteToDelete, setNoteToDelete] = useState<any>(null);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+
+  async function load() {
+    const res = await fetch(`/api/customers/${id}/full`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Client introuvable');
+    const data = await res.json();
+    setCustomer(data);
+    setFirstName(data.firstName || '');
+    setLastName(data.lastName || '');
+    setEmail(data.email || '');
+    setPhone(data.phone || '');
+    setAddress(data.address || '');
+    setCity(data.city || '');
+  }
+
+  useEffect(() => {
+    load().catch((e) => setError(e.message)).finally(() => setLoading(false));
+  }, [id]);
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    const res = await fetch(`/api/customers/${id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName, lastName, email: email || null, phone: phone || null, address: address || null, city: city || null }),
+    });
+    if (res.ok) {
+      setShowEdit(false);
+      await load();
+    }
+  }
+
+  async function confirmDelete() {
+    setIsDeleting(true);
+    await fetch(`/api/customers/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    router.push('/dashboard/crm');
+  }
+
+  async function addTag(tagId: string) {
+    await fetch(`/api/customers/${id}/tags`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag: tagId }),
+    });
+    await load();
+    setShowTagModal(false);
+  }
+
+  async function removeTag(tagId: string) {
+    await fetch(`/api/customers/${id}/tags/${encodeURIComponent(tagId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await load();
+  }
+
+  async function addNote(e: React.FormEvent) {
+    e.preventDefault();
+    if (!noteContent.trim()) return;
+    setSavingNote(true);
+    await fetch(`/api/customers/${id}/notes`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: noteContent }),
+    });
+    setNoteContent('');
+    setSavingNote(false);
+    await load();
+  }
+
+  async function confirmDeleteNote() {
+    if (!noteToDelete) return;
+    await fetch(`/api/customers/${id}/notes/${noteToDelete.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setNoteToDelete(null);
+    await load();
+  }
+
+  async function addDocument(e: React.FormEvent) {
+    e.preventDefault();
+    if (!docName.trim() || !docUrl.trim()) return;
+    await fetch(`/api/customers/${id}/documents`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: docName, url: docUrl, type: docType || null }),
+    });
+    setDocName(''); setDocUrl(''); setDocType('');
+    setShowDocModal(false);
+    await load();
+  }
+
+  async function confirmDeleteDoc() {
+    if (!docToDelete) return;
+    await fetch(`/api/customers/${id}/documents/${docToDelete.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setDocToDelete(null);
+    await load();
+  }
+
+  function handlePrint() {
+    window.print();
+  }
+
+  if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
+  if (error || !customer) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+        <p className="text-red-600 font-semibold">{error || 'Client introuvable'}</p>
+        <button onClick={() => router.push('/dashboard/crm')} className="mt-4 text-sm text-blue-600 hover:underline">
+          ← Retour à la liste
+        </button>
+      </div>
+    );
+  }
+
+  const initials = `${customer.firstName?.charAt(0) || ''}${customer.lastName?.charAt(0) || ''}`;
+  const nights = (r: any) => {
+    const i = new Date(r.checkInDate), o = new Date(r.checkOutDate);
+    return Math.max(1, Math.ceil((o.getTime() - i.getTime()) / (1000 * 60 * 60 * 24)));
+  };
+  const currentTags = parseTags(customer.tags);
+  const availableTags = PREDEFINED_TAGS.filter((t) => !currentTags.includes(t.id));
+  const clientNumber = customer.id.slice(-8).toUpperCase();
+  const sinceDate = new Date(customer.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  return (
+    <>
+      {/* ══════════ STYLES IMPRESSION ══════════ */}
+      <style jsx global>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #print-fiche, #print-fiche * { visibility: visible !important; }
+          #print-fiche {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            padding: 20mm !important;
+            background: white !important;
+          }
+          .no-print { display: none !important; }
+          @page { size: A4; margin: 15mm; }
+        }
+      `}</style>
+
+      <div className="space-y-3">
+      {/* ══════ BARRE UNIFIÉE CLIENT ══════ */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden no-print">
+        {/* Ligne 1 : identité + actions */}
+        <div className="flex items-center gap-3 p-3 border-b border-gray-100 flex-wrap">
+          {/* Avatar */}
+          <div className="w-11 h-11 bg-linear-to-br from-teal-400 to-blue-500 rounded-xl flex items-center justify-center text-white font-bold shadow-md shrink-0">
+            {initials}
+          </div>
+
+          {/* Nom + infos */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-bold text-slate-900 leading-tight">
+                {customer.firstName} {customer.lastName}
+              </h1>
+              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
+                {clientNumber}
+              </span>
+              {currentTags.map((tag: string) => {
+                const meta = getTagMeta(tag);
+                return (
+                  <span key={tag} className={`group inline-flex items-center gap-1 pl-1.5 pr-0.5 py-0.5 rounded text-[10px] font-bold border ${meta.color}`}>
+                    <span className="shrink-0">{meta.icon}</span>
+                    <span>{meta.label}</span>
+                    <button onClick={() => removeTag(tag)} className="w-3 h-3 rounded-full hover:bg-red-100 flex items-center justify-center opacity-0 group-hover:opacity-100 text-[10px] font-bold">×</button>
+                  </span>
+                );
+              })}
+              <button onClick={() => setShowTagModal(true)} className="text-[10px] text-teal-600 hover:underline font-semibold">
+                + Tag
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-slate-500">
+              {customer.email && <span>📧 {customer.email}</span>}
+              {customer.phone && <span>📞 {customer.phone}</span>}
+              {customer.city && <span>📍 {customer.city}</span>}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-1.5 shrink-0">
+            <button onClick={handlePrint} className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition inline-flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              Imprimer
+            </button>
+            <button onClick={() => setShowEdit(true)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-semibold transition">✏️</button>
+            <button onClick={() => setShowDelete(true)} className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition">🗑️</button>
+          </div>
+        </div>
+
+        {/* Ligne 2 : stats inline */}
+        <div className="grid grid-cols-4 divide-x divide-gray-100">
+          <div className="px-4 py-2 text-center">
+            <p className="text-[10px] text-slate-500 uppercase font-semibold">Résa</p>
+            <p className="text-base font-bold text-slate-900">{customer.stats.totalReservations}</p>
+          </div>
+          <div className="px-4 py-2 text-center">
+            <p className="text-[10px] text-slate-500 uppercase font-semibold">Dépensé</p>
+            <p className="text-sm font-bold text-slate-900 truncate">{customer.stats.totalSpent.toLocaleString('fr-FR')} Ar</p>
+          </div>
+          <div className="px-4 py-2 text-center">
+            <p className="text-[10px] text-slate-500 uppercase font-semibold">Reste</p>
+            <p className={`text-sm font-bold truncate ${customer.stats.outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {customer.stats.outstanding.toLocaleString('fr-FR')} Ar
+            </p>
+          </div>
+          <div className="px-4 py-2 text-center">
+            <p className="text-[10px] text-slate-500 uppercase font-semibold">Dernière</p>
+            <p className="text-sm font-bold text-slate-900 truncate">
+              {customer.stats.lastVisit ? new Date(customer.stats.lastVisit).toLocaleDateString('fr-FR') : '—'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+        {/* ───── Onglets ───── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-1 flex flex-wrap gap-1 no-print">
+          <button onClick={() => setTab('fiche')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${tab === 'fiche' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+            📋 Fiche
+          </button>
+          <button onClick={() => setTab('historique')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${tab === 'historique' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+            📜 Historique
+          </button>
+          <button onClick={() => setTab('reservations')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${tab === 'reservations' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+            📅 Réservations ({customer.stats.totalReservations})
+          </button>
+          <button onClick={() => setTab('sales')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${tab === 'sales' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+            🛒 Ventes ({customer.stats.totalSales})
+          </button>
+          <button onClick={() => setTab('notes')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${tab === 'notes' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+            📝 Notes ({customer.customerNotes?.length || 0})
+          </button>
+          <button onClick={() => setTab('documents')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${tab === 'documents' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+            📎 Documents ({customer.documents?.length || 0})
+          </button>
+        </div>
+
+        {/* ══════════════════════════════════════════ */}
+        {/* ═══ FICHE POLICE (imprimable) ═══ */}
+        {/* ══════════════════════════════════════════ */}
+        {tab === 'fiche' && (
+          <div id="print-fiche" className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            {/* En-tête document */}
+            <div className="bg-slate-900 text-white px-8 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-linear-to-br from-teal-400 to-blue-500 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="font-bold text-lg leading-tight">{customer.organization?.name || 'NEXUS OS'}</h2>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Fiche client</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">N° client</p>
+                <p className="font-mono font-bold">{clientNumber}</p>
+              </div>
+            </div>
+
+            {/* Bandeau titre */}
+            <div className="border-b-4 border-slate-900 px-8 py-4">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Fiche d'identité client</h1>
+                <div className="text-right text-xs text-slate-500">
+                  <p>Émise le {new Date().toLocaleDateString('fr-FR')}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 space-y-8">
+              {/* ═══ 1. IDENTITÉ ═══ */}
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-sm">1</span>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Identité</h3>
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                  <Field label="Nom" value={customer.lastName} />
+                  <Field label="Prénom" value={customer.firstName} />
+                  <Field label="Nom complet" value={`${customer.firstName} ${customer.lastName}`} />
+                  <Field label="Client depuis" value={sinceDate} />
+                </div>
+              </section>
+
+              {/* ═══ 2. CONTACT ═══ */}
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-sm">2</span>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Contact</h3>
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                  <Field label="Email" value={customer.email} />
+                  <Field label="Téléphone" value={customer.phone} />
+                </div>
+              </section>
+
+              {/* ═══ 3. LOCALISATION ═══ */}
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-sm">3</span>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Localisation</h3>
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                  <Field label="Ville" value={customer.city} />
+                  <Field label="Adresse" value={customer.address} />
+                </div>
+              </section>
+
+              {/* ═══ 4. TAGS / CLASSIFICATION ═══ */}
+              {currentTags.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-sm">4</span>
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Classification</h3>
+                    <div className="flex-1 h-px bg-slate-200"></div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {currentTags.map((tag: string) => {
+                      const meta = getTagMeta(tag);
+                      return (
+                        <span key={tag} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border-2 ${meta.color}`}>
+                          {meta.icon}
+                          {meta.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* ═══ 5. SYNTHÈSE SÉJOURS ═══ */}
+              <section>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-sm">{currentTags.length > 0 ? '5' : '4'}</span>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Synthèse</h3>
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                  <StatBox label="Réservations" value={customer.stats.totalReservations} />
+                  <StatBox label="Total dépensé" value={`${customer.stats.totalSpent.toLocaleString('fr-FR')} Ar`} />
+                  <StatBox label="Reste à payer" value={`${customer.stats.outstanding.toLocaleString('fr-FR')} Ar`} red={customer.stats.outstanding > 0} />
+                  <StatBox label="Dernière visite" value={customer.stats.lastVisit ? new Date(customer.stats.lastVisit).toLocaleDateString('fr-FR') : '—'} />
+                </div>
+              </section>
+
+              {/* ═══ SIGNATURE ═══ */}
+              <div className="pt-8 mt-8 border-t border-slate-200">
+                <div className="grid grid-cols-2 gap-16">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-12">Signature du client</p>
+                    <div className="border-t border-slate-400"></div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-12">Cachet / Signature établissement</p>
+                    <div className="border-t border-slate-400"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pied de page */}
+              <div className="text-center text-[10px] text-slate-400 pt-4">
+                Document généré par NEXUS OS le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} — Fiche n° {clientNumber}
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {/* ══════════════════════════════════════════ */}
+        {/* ═══ HISTORIQUE COMPLET ═══ */}
+        {/* ══════════════════════════════════════════ */}
+        {tab === 'historique' && (
+          <div className="space-y-4">
+            {/* Actions */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 flex items-center justify-between flex-wrap gap-3 no-print">
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { v: 'ALL',          l: 'Tout',          i: '📋' },
+                  { v: 'RESERVATION',  l: 'Réservations',  i: '📅' },
+                  { v: 'POS_SALE',     l: 'Ventes POS',    i: '🛒' },
+                  { v: 'SALE',         l: 'Ventes',        i: '💰' },
+                  { v: 'NOTE',         l: 'Notes',         i: '📝' },
+                ].map((f) => (
+                  <button
+                    key={f.v}
+                    onClick={() => setTimelineFilter(f.v)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${timelineFilter === f.v ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    {f.i} {f.l}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  const printWindow = window.open('', '_blank');
+                  if (!printWindow) return;
+                  const items = (customer.timeline || []).filter((t: any) => timelineFilter === 'ALL' || t.type === timelineFilter);
+                  printWindow.document.write(`
+                    <html><head><title>Historique - ${customer.firstName} ${customer.lastName}</title>
+                    <style>
+                      body { font-family: Arial, sans-serif; padding: 30px; color: #1e293b; }
+                      h1 { color: #0f172a; border-bottom: 3px solid #0f172a; padding-bottom: 8px; }
+                      .header { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; color: #64748b; }
+                      .item { border-left: 3px solid #14b8a6; padding: 10px 15px; margin-bottom: 12px; background: #f8fafc; border-radius: 6px; page-break-inside: avoid; }
+                      .item .title { font-weight: bold; font-size: 14px; }
+                      .item .date { font-size: 11px; color: #64748b; }
+                      .item .desc { font-size: 12px; margin-top: 4px; color: #475569; }
+                      .item .amount { font-weight: bold; color: #0f172a; float: right; }
+                      .stat { display: inline-block; margin-right: 20px; padding: 8px 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px; }
+                      .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+                    </style></head><body>
+                    <h1>Historique client — ${customer.firstName} ${customer.lastName}</h1>
+                    <div class="header">
+                      <span>Client n° ${clientNumber}</span>
+                      <span>Édité le ${new Date().toLocaleDateString('fr-FR')}</span>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                      <span class="stat">📅 ${customer.stats.totalReservations} réservations</span>
+                      <span class="stat">💰 Total dépensé : ${customer.stats.totalSpent.toLocaleString('fr-FR')} Ar</span>
+                      <span class="stat">📌 Reste : ${customer.stats.outstanding.toLocaleString('fr-FR')} Ar</span>
+                    </div>
+                    ${items.map((t: any) => `
+                      <div class="item">
+                        <div class="date">${new Date(t.date).toLocaleDateString('fr-FR')} ${new Date(t.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div class="title">${t.title} ${t.amount ? '<span class="amount">' + t.amount.toLocaleString('fr-FR') + ' Ar</span>' : ''}</div>
+                        <div class="desc">${t.description || ''}</div>
+                      </div>
+                    `).join('')}
+                    <div class="footer">Document généré par NEXUS OS — ${new Date().toLocaleString('fr-FR')}</div>
+                    </body></html>
+                  `);
+                  printWindow.document.close();
+                  setTimeout(() => printWindow.print(), 250);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Imprimer l'historique
+              </button>
+            </div>
+
+            {/* Timeline */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <span className="text-lg">📜</span>
+                Historique complet
+                <span className="text-xs text-slate-400 font-normal ml-auto">
+                  {(customer.timeline || []).filter((t: any) => timelineFilter === 'ALL' || t.type === timelineFilter).length} événement(s)
+                </span>
+              </h3>
+
+              {(() => {
+                const items = (customer.timeline || []).filter((t: any) => timelineFilter === 'ALL' || t.type === timelineFilter);
+                if (items.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-3">📭</div>
+                      <p className="text-slate-400 text-sm">Aucun événement</p>
+                    </div>
+                  );
+                }
+
+                const typeMeta: Record<string, { color: string; bg: string; icon: string; label: string }> = {
+                  RESERVATION: { color: 'text-blue-700',    bg: 'bg-blue-100',    icon: '📅', label: 'Réservation' },
+                  POS_SALE:    { color: 'text-emerald-700', bg: 'bg-emerald-100', icon: '🛒', label: 'Vente POS' },
+                  SALE:        { color: 'text-purple-700',  bg: 'bg-purple-100',  icon: '💰', label: 'Vente' },
+                  NOTE:        { color: 'text-amber-700',   bg: 'bg-amber-100',   icon: '📝', label: 'Note' },
+                };
+
+                return (
+                  <div className="relative">
+                    {/* Ligne verticale */}
+                    <div className="absolute left-5 top-2 bottom-2 w-0.5 bg-slate-200"></div>
+
+                    <div className="space-y-3">
+                      {items.map((t: any, idx: number) => {
+                        const meta = typeMeta[t.type] || typeMeta.NOTE;
+                        return (
+                          <div key={`${t.type}-${t.id}-${idx}`} className="relative flex gap-4">
+                            {/* Point */}
+                            <div className={`w-10 h-10 rounded-full ${meta.bg} ${meta.color} flex items-center justify-center text-base shrink-0 ring-4 ring-white shadow-sm z-10`}>
+                              {meta.icon}
+                            </div>
+
+                            {/* Contenu */}
+                            <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-100 hover:bg-white hover:shadow-md transition">
+                              <div className="flex items-start justify-between gap-3 flex-wrap">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-semibold text-slate-900 text-sm">{t.title}</h4>
+                                    <span className={`text-[10px] ${meta.bg} ${meta.color} px-2 py-0.5 rounded-full font-medium`}>{meta.label}</span>
+                                    {t.extra?.author && (
+                                      <span className="text-[10px] text-slate-500">par {t.extra.author}</span>
+                                    )}
+                                  </div>
+                                  {t.description && (
+                                    <p className="text-xs text-slate-600 mt-1 line-clamp-2">{t.description}</p>
+                                  )}
+                                  {t.extra?.nights && (
+                                    <p className="text-[10px] text-slate-500 mt-1">
+                                      {new Date(t.extra.checkIn).toLocaleDateString('fr-FR')} → {new Date(t.extra.checkOut).toLocaleDateString('fr-FR')} · {t.extra.nights} nuit(s)
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="text-right shrink-0">
+                                  {t.amount !== undefined && (
+                                    <div className="font-bold text-slate-900 text-sm">{t.amount.toLocaleString('fr-FR')} Ar</div>
+                                  )}
+                                  {t.paidAmount !== undefined && t.paidAmount < t.amount && (
+                                    <div className="text-[10px] text-red-600 font-medium">
+                                      Reste {(t.amount - t.paidAmount).toLocaleString('fr-FR')} Ar
+                                    </div>
+                                  )}
+                                  <div className="text-[10px] text-slate-400 mt-1">
+                                    {new Date(t.date).toLocaleDateString('fr-FR')} · {new Date(t.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════ */}
+        {/* ═══ RÉSERVATIONS ═══ */}
+        {/* ══════════════════════════════════════════ */}
+        {tab === 'reservations' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-gray-200">
+                  <tr>
+                    <th className="p-4 font-semibold text-slate-600">Référence</th>
+                    <th className="p-4 font-semibold text-slate-600">Chambre</th>
+                    <th className="p-4 font-semibold text-slate-600">Arrivée</th>
+                    <th className="p-4 font-semibold text-slate-600">Départ</th>
+                    <th className="p-4 font-semibold text-slate-600 text-center">Nuits</th>
+                    <th className="p-4 font-semibold text-slate-600 text-right">Total</th>
+                    <th className="p-4 font-semibold text-slate-600">Statut</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {customer.reservations.map((r: any) => {
+                    const meta = STATUS_META[r.status] || STATUS_META.PENDING;
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50">
+                        <td className="p-4 font-mono text-xs text-slate-700">{r.reference}</td>
+                        <td className="p-4">
+                          <div className="font-medium text-slate-900">N° {r.room?.number}</div>
+                          <div className="text-xs text-slate-500">{r.room?.roomType?.name}</div>
+                        </td>
+                        <td className="p-4 text-slate-600">{new Date(r.checkInDate).toLocaleDateString('fr-FR')}</td>
+                        <td className="p-4 text-slate-600">{new Date(r.checkOutDate).toLocaleDateString('fr-FR')}</td>
+                        <td className="p-4 text-center font-semibold">{nights(r)}</td>
+                        <td className="p-4 text-right font-semibold">{r.totalAmount.toLocaleString('fr-FR')} Ar</td>
+                        <td className="p-4"><Badge variant={meta.variant}>{meta.icon} {meta.label}</Badge></td>
+                      </tr>
+                    );
+                  })}
+                  {customer.reservations.length === 0 && (
+                    <tr><td colSpan={7} className="p-8 text-center text-slate-400">Aucune réservation</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ VENTES ═══ */}
+        {tab === 'sales' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-gray-200">
+                  <tr>
+                    <th className="p-4 font-semibold text-slate-600">Date</th>
+                    <th className="p-4 font-semibold text-slate-600">Produit / Module</th>
+                    <th className="p-4 font-semibold text-slate-600 text-center">Qté</th>
+                    <th className="p-4 font-semibold text-slate-600 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {customer.sales.map((s: any) => (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="p-4 text-slate-600">{new Date(s.createdAt).toLocaleDateString('fr-FR')}</td>
+                      <td className="p-4 font-medium text-slate-900">{s.catalogItem?.name || s.module?.name || '—'}</td>
+                      <td className="p-4 text-center text-slate-600">{s.quantity}</td>
+                      <td className="p-4 text-right font-semibold">{s.total.toLocaleString('fr-FR')} Ar</td>
+                    </tr>
+                  ))}
+                  {customer.sales.length === 0 && (
+                    <tr><td colSpan={4} className="p-8 text-center text-slate-400">Aucune vente</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ NOTES ═══ */}
+        {tab === 'notes' && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+              <form onSubmit={addNote} className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">M</div>
+                  <textarea
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                    placeholder="Ajoutez une note interne sur ce client..."
+                    rows={3}
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-400 focus:border-teal-400 focus:bg-white text-slate-900 text-sm transition resize-none"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={!noteContent.trim()} loading={savingNote} size="sm">Ajouter la note</Button>
+                </div>
+              </form>
+            </div>
+            <div className="space-y-3">
+              {customer.customerNotes?.map((note: any) => (
+                <div key={note.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 relative group">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {note.author?.name?.charAt(0) || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-slate-900 text-sm">{note.author?.name || 'Système'}</span>
+                        <span className="text-xs text-slate-400">
+                          {new Date(note.createdAt).toLocaleDateString('fr-FR')} à {new Date(note.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{note.content}</p>
+                    </div>
+                    <button onClick={() => setNoteToDelete(note)} className="opacity-0 group-hover:opacity-100 transition w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-500 text-sm">🗑️</button>
+                  </div>
+                </div>
+              ))}
+              {(!customer.customerNotes || customer.customerNotes.length === 0) && (
+                <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-200">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-3">📝</div>
+                  <p className="text-slate-400 text-sm">Aucune note pour ce client</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ DOCUMENTS ═══ */}
+        {tab === 'documents' && (
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button onClick={() => setShowDocModal(true)} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>}>Ajouter un document</Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {customer.documents?.map((doc: any) => (
+                <div key={doc.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 group hover:border-teal-300 transition">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 bg-linear-to-br from-blue-100 to-teal-100 rounded-xl flex items-center justify-center text-2xl shrink-0">
+                      {doc.type?.includes('pdf') ? '📄' : doc.type?.includes('image') ? '🖼️' : '📎'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-slate-900 text-sm truncate">{doc.name}</h4>
+                      <p className="text-xs text-slate-500 truncate">{doc.type || 'Document'}</p>
+                      <p className="text-xs text-slate-400 mt-1">{new Date(doc.createdAt).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-center text-xs text-blue-600 hover:underline font-medium py-1">Ouvrir ↗</a>
+                    <button onClick={() => setDocToDelete(doc)} className="text-xs text-red-600 hover:underline font-medium px-2">Supprimer</button>
+                  </div>
+                </div>
+              ))}
+              {(!customer.documents || customer.documents.length === 0) && (
+                <div className="col-span-full text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-200">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-3">📎</div>
+                  <p className="text-slate-400 text-sm">Aucun document joint</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ MODALES ═══ */}
+        <Modal open={showEdit} onClose={() => setShowEdit(false)} title="Modifier le client" icon={<span className="text-2xl">✏️</span>}
+          footer={
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => setShowEdit(false)}>Annuler</Button>
+              <button type="submit" form="edit-form" className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold">Enregistrer</button>
+            </div>
+          }>
+          <form id="edit-form" onSubmit={saveEdit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Prénom" required><Input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required /></FormField>
+              <FormField label="Nom" required><Input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required /></FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></FormField>
+              <FormField label="Téléphone"><Input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} /></FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Ville"><Input type="text" value={city} onChange={(e) => setCity(e.target.value)} /></FormField>
+              <FormField label="Adresse"><Input type="text" value={address} onChange={(e) => setAddress(e.target.value)} /></FormField>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal open={showTagModal} onClose={() => setShowTagModal(false)} title="Ajouter un tag" icon={<span className="text-2xl">🏷️</span>} size="md">
+          <div className="grid grid-cols-2 gap-3">
+            {availableTags.map((t) => (
+              <button key={t.id} onClick={() => addTag(t.id)} className={`flex items-center gap-3 p-4 border-2 rounded-xl hover:scale-[1.02] transition text-left ${t.color}`}>
+                <span className="shrink-0">{t.icon}</span>
+                <span className="font-semibold text-sm">{t.label}</span>
+              </button>
+            ))}
+            {availableTags.length === 0 && <p className="col-span-2 text-center text-sm text-slate-400 py-6">Tous les tags sont déjà attribués</p>}
+          </div>
+        </Modal>
+
+        <Modal open={showDocModal} onClose={() => setShowDocModal(false)} title="Ajouter un document" icon={<span className="text-2xl">📎</span>} size="md"
+          footer={
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => setShowDocModal(false)}>Annuler</Button>
+              <button type="submit" form="doc-form" className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold">Ajouter</button>
+            </div>
+          }>
+          <form id="doc-form" onSubmit={addDocument} className="space-y-4">
+            <FormField label="Nom du document" required><Input type="text" value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="CIN, Passeport..." required /></FormField>
+            <FormField label="Type"><Input type="text" value={docType} onChange={(e) => setDocType(e.target.value)} placeholder="PDF, image..." /></FormField>
+            <FormField label="URL" required><Input type="url" value={docUrl} onChange={(e) => setDocUrl(e.target.value)} placeholder="https://..." required /></FormField>
+          </form>
+        </Modal>
+
+        <ConfirmDialog open={showDelete} title="Supprimer le client" message={`Supprimer ${customer.firstName} ${customer.lastName} ?`} onClose={() => setShowDelete(false)} onConfirm={confirmDelete} isLoading={isDeleting} />
+        <ConfirmDialog open={!!noteToDelete} title="Supprimer la note" message="Cette note sera supprimée." onClose={() => setNoteToDelete(null)} onConfirm={confirmDeleteNote} />
+        <ConfirmDialog open={!!docToDelete} title="Supprimer le document" message={`Supprimer "${docToDelete?.name}" ?`} onClose={() => setDocToDelete(null)} onConfirm={confirmDeleteDoc} />
+      </div>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// Petits composants de présentation
+// ═══════════════════════════════════════════════
+function Field({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="border-b border-slate-100 pb-2">
+      <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{label}</p>
+      <p className="text-slate-900 font-medium mt-1">{value || '—'}</p>
+    </div>
+  );
+}
+
+function StatBox({ label, value, red }: { label: string; value: any; red?: boolean }) {
+  return (
+    <div className="border border-slate-200 rounded-xl p-4 text-center">
+      <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1">{label}</p>
+      <p className={`text-lg font-bold ${red ? 'text-red-600' : 'text-slate-900'}`}>{value}</p>
+    </div>
+  );
+}

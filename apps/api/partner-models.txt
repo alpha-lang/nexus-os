@@ -1,0 +1,79 @@
+
+// ═══════════════════════════════════════════════════════
+//  PARTNER (Tiers unifie — Client + Fournisseur)
+// ═══════════════════════════════════════════════════════
+
+model Partner {
+  id             String            @id @default(cuid())
+  type           String            @default("CUSTOMER")
+  name           String
+  email          String?
+  phone          String?
+  address        String?
+  city           String?
+  notes          String?
+  tags           String?
+  segment        String?
+  score          Int               @default(50)
+  isActive       Boolean           @default(true)
+  lastContactAt  DateTime?
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?             @relation(fields: [userId], references: [id])
+  customerProfile CustomerProfile?
+  supplierProfile SupplierProfile?
+  interactions   Interaction[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([organizationId, type])
+  @@index([organizationId, segment])
+  @@map("Partner")
+}
+
+model CustomerProfile {
+  id             String       @id @default(cuid())
+  partnerId      String       @unique
+  partner        Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  notes          CustomerNote[]
+  documents      CustomerDocument[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("CustomerProfile")
+}
+
+model SupplierProfile {
+  id             String          @id @default(cuid())
+  partnerId      String          @unique
+  partner        Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  contactName    String?
+  leadTimeDays   Int?
+  stockItems     StockItem[]
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("SupplierProfile")
+}
+
+model Interaction {
+  id             String       @id @default(cuid())
+  partnerId      String
+  partner        Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  type           String
+  subject        String
+  content        String?
+  duration       Int?
+  outcome        String?
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([partnerId, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("Interaction")
+}

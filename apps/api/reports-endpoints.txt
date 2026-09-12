@@ -1,0 +1,11 @@
+  // REPORTS
+  @Get('reports/rotation') rotation(@CurrentUser() u: any, @Query('days') d: string) {
+    return this.service.getRotationReport(u, d ? parseInt(d) : 30);
+  }
+  @Get('reports/abc') abc(@CurrentUser() u: any, @Query('days') d: string) {
+    return this.service.getAbcReport(u, d ? parseInt(d) : 30);
+  }
+  @Get('reports/price-history') priceHistory(@CurrentUser() u: any, @Query('itemId') iid: string) {
+    return this.service.getPriceHistoryReport(u, iid || undefined);
+  }
+

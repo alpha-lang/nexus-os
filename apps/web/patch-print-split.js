@@ -1,0 +1,225 @@
+const fs = require("fs");
+const p = "app/dashboard/stock/orders/[id]/page.tsx";
+let s = fs.readFileSync(p, "utf8");
+
+// 1. Renommer la fonction printOrder existante en printPO (Bon de commande)
+s = s.replace(
+  `  function printOrder() {`,
+  `  function printPO() {`
+);
+
+// 2. Remplacer le contenu du template pour ajouter bandeau COMMANDE
+const oldPOBody = `<body>
+        <div class="header">
+          <div>
+            <div class="logo">NEXUS OS<small>BON DE COMMANDE</small></div>
+          </div>`;
+const newPOBody = `<body>
+        <div class="banner banner-commande">
+          <div class="banner-icon">📋</div>
+          <div>
+            <div class="banner-title">BON DE COMMANDE</div>
+            <div class="banner-sub">Document a transmettre au fournisseur</div>
+          </div>
+        </div>
+
+        <div class="header">
+          <div>
+            <div class="logo">NEXUS OS<small>${order.status === 'DRAFT' ? 'BROUILLON' : order.status === 'SENT' ? 'ENVOYE' : 'ARCHIVE'}</small></div>
+          </div>`;
+
+if (!s.includes(oldPOBody)) { console.error("❌ anchor print PO body introuvable"); process.exit(1); }
+s = s.replace(oldPOBody, newPOBody);
+
+// 3. Ajouter les styles bandeau dans <style>
+const oldStyle = `        .notes { background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 12px; color: #78350f; }
+      </style>`;
+const newStyle = `        .notes { background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 12px; color: #78350f; }
+        .banner { display: flex; align-items: center; gap: 15px; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; }
+        .banner-commande { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; }
+        .banner-reception { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; }
+        .banner-icon { font-size: 32px; }
+        .banner-title { font-size: 20px; font-weight: 900; letter-spacing: 2px; margin-bottom: 3px; }
+        .banner-sub { font-size: 11px; opacity: 0.85; letter-spacing: 0.5px; }
+        .stamp { position: absolute; top: 200px; right: 60px; border: 4px solid #059669; color: #059669; padding: 15px 30px; border-radius: 10px; transform: rotate(-15deg); font-size: 32px; font-weight: 900; letter-spacing: 4px; opacity: 0.85; }
+        .variation-row { background: #f0fdf4; }
+        .variation-row td { font-weight: 900; }
+        .footer-note { font-size: 10px; color: #64748b; text-align: center; margin-top: 20px; padding: 10px; border-top: 1px dashed #cbd5e1; }
+      </style>`;
+
+if (!s.includes(oldStyle)) { console.error("❌ anchor style introuvable"); process.exit(1); }
+s = s.replace(oldStyle, newStyle);
+
+// 4. Renommer les références dans printOrder → printPO
+s = s.replace(
+  `        <div class="footer">
+          Document genere par NEXUS OS le \${new Date().toLocaleDateString('fr-FR')} a \${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </body></html>
+    \`);
+    win.document.close();
+    setTimeout(() => win.print(), 400);
+  }`,
+  `        <div class="footer">
+          Document "Bon de commande" - a ne pas confondre avec le bon de reception<br>
+          Genere par NEXUS OS le \${new Date().toLocaleDateString('fr-FR')} a \${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </body></html>
+    \`);
+    win.document.close();
+    setTimeout(() => win.print(), 400);
+  }
+
+  // ═══ IMPRESSION : BON DE RECEPTION ═══
+  function printGRN() {
+    const win = window.open('', '_blank', 'width=800,height=900');
+    if (!win) return;
+
+    const lines = order.items.map((it: any) => {
+      const received = it.receivedQty || 0;
+      const ordered = it.quantity;
+      const gap = ordered - received;
+      const hasGap = Math.abs(gap) > 0.001;
+      return \`
+        <tr class="\${hasGap ? 'variation-row' : ''}">
+          <td style="padding:8px;border-bottom:1px solid #e2e8f0">\${it.stockItem?.name || ''}</td>
+          <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:center">\${ordered} \${it.stockItem?.unit || ''}</td>
+          <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:bold;color:#059669">\${received} \${it.stockItem?.unit || ''}</td>
+          <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:center">\${hasGap ? '<span style="color:#dc2626;font-weight:bold">' + gap + '</span>' : 'OK'}</td>
+          <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right">\${(it.unitCost || 0).toLocaleString('fr-FR')} Ar</td>
+          <td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:bold">\${(received * (it.unitCost || 0)).toLocaleString('fr-FR')} Ar</td>
+        </tr>
+      \`;
+    }).join('');
+
+    const totalOrdered = order.totalAmount;
+    const totalReceived = order.items.reduce((s: number, it: any) => s + (it.receivedQty || 0) * it.unitCost, 0);
+    const totalGap = totalOrdered - totalReceived;
+
+    win.document.write(\`
+      <html><head><title>Bon de reception \${order.reference}</title>
+      <style>
+        @page { size: A4; margin: 15mm; }
+        body { font-family: Arial, sans-serif; color: #0f172a; font-size: 13px; }
+        .banner { display: flex; align-items: center; gap: 15px; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; }
+        .banner-icon { font-size: 32px; }
+        .banner-title { font-size: 20px; font-weight: 900; letter-spacing: 2px; margin-bottom: 3px; }
+        .banner-sub { font-size: 11px; opacity: 0.85; letter-spacing: 0.5px; }
+        .header { display: flex; justify-content: space-between; align-items: start; border-bottom: 3px solid #059669; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo { font-size: 24px; font-weight: 900; color: #0f172a; letter-spacing: -0.5px; }
+        .logo small { display: block; font-size: 10px; color: #64748b; letter-spacing: 2px; margin-top: 2px; }
+        .ref { text-align: right; }
+        .ref .label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+        .ref .value { font-size: 20px; font-weight: 900; font-family: monospace; color: #0f172a; }
+        h1 { font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 15px 0; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+        .info-block { background: #f0fdf4; padding: 12px 15px; border-radius: 8px; border-left: 3px solid #059669; }
+        .info-block .label { font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; margin-bottom: 4px; }
+        .info-block .value { font-size: 14px; font-weight: bold; color: #0f172a; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        thead th { background: #059669; color: white; padding: 10px 8px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .variation-row { background: #fef3c7; }
+        .total-box { background: #0f172a; color: white; padding: 15px 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+        .total-box .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .total-box .amount { font-size: 24px; font-weight: 900; }
+        .total-box .gap { font-size: 12px; color: #fca5a5; margin-top: 4px; }
+        .notes { background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 12px; color: #78350f; }
+        .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; }
+        .sig-box { border-top: 1px solid #94a3b8; padding-top: 8px; font-size: 10px; color: #64748b; text-align: center; }
+        .stamp { position: absolute; top: 240px; right: 60px; border: 4px solid #059669; color: #059669; padding: 15px 30px; border-radius: 10px; transform: rotate(-15deg); font-size: 32px; font-weight: 900; letter-spacing: 4px; opacity: 0.7; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 900; letter-spacing: 1px; }
+        .status-partial { background: #fef3c7; color: #78350f; }
+        .status-full { background: #d1fae5; color: #065f46; }
+      </style></head><body>
+        <div class="banner banner-reception">
+          <div class="banner-icon">📦</div>
+          <div>
+            <div class="banner-title">BON DE RECEPTION</div>
+            <div class="banner-sub">Document de livraison signe a la remise des marchandises</div>
+          </div>
+        </div>
+
+        <div class="header">
+          <div>
+            <div class="logo">NEXUS OS<small>RECEPTION MARCHANDISES</small></div>
+          </div>
+          <div class="ref">
+            <div class="label">Reference commande</div>
+            <div class="value">\${order.reference}</div>
+            <div class="label" style="margin-top:6px">Date de reception</div>
+            <div style="font-size:12px;font-weight:bold">\${order.receivedAt ? fmtDate(order.receivedAt) : fmtDate(new Date())}</div>
+          </div>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-block">
+            <div class="label">Fournisseur livreur</div>
+            <div class="value">\${order.supplier?.name || ''}</div>
+            \${order.supplier?.contactName ? \`<div style="font-size:11px;color:#475569;margin-top:2px">Contact : \${order.supplier.contactName}</div>\` : ''}
+            \${order.supplier?.phone ? \`<div style="font-size:11px;color:#475569">Tel : \${order.supplier.phone}</div>\` : ''}
+          </div>
+          <div class="info-block">
+            <div class="label">Statut de la commande</div>
+            <div style="margin-top:4px">
+              <span class="status-badge \${order.status === 'PARTIAL' ? 'status-partial' : 'status-full'}">
+                \${order.status === 'PARTIAL' ? 'RECEPTION PARTIELLE' : 'RECEPTION COMPLETE'}
+              </span>
+            </div>
+            \${order.status === 'PARTIAL' ? \`<div style="font-size:11px;color:#dc2626;margin-top:6px;font-weight:bold">Toutes les quantites n ont pas ete livrees</div>\` : ''}
+          </div>
+        </div>
+
+        <h1>Detail des marchandises recues</h1>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Article</th>
+              <th style="text-align:center">Qte commandee</th>
+              <th style="text-align:center">Qte recue</th>
+              <th style="text-align:center">Ecart</th>
+              <th style="text-align:right">P.U.</th>
+              <th style="text-align:right">Total recu</th>
+            </tr>
+          </thead>
+          <tbody>\${lines}</tbody>
+        </table>
+
+        <div class="total-box">
+          <div>
+            <div class="label">Total facture (recu)</div>
+            \${totalGap > 0 ? \`<div class="gap">Ecart vs commande : - \${totalGap.toLocaleString('fr-FR')} Ar</div>\` : ''}
+          </div>
+          <div class="amount">\${totalReceived.toLocaleString('fr-FR')} Ar</div>
+        </div>
+
+        \${order.notes ? \`<div class="notes" style="margin-top:20px"><strong>Notes :</strong> \${order.notes}</div>\` : ''}
+
+        <div style="background:#f0fdf4;border:2px solid #059669;border-radius:10px;padding:15px;margin-top:20px">
+          <p style="font-size:11px;color:#065f46;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Verification obligatoire a la livraison</p>
+          <ul style="font-size:11px;color:#0f172a;margin:0;padding-left:20px;line-height:1.8">
+            <li>Verifier chaque article physiquement (quantite et qualite)</li>
+            <li>Signaler tout ecart, casse ou marchandise non conforme</li>
+            <li>Faire signer le livreur en presence du responsable reception</li>
+            <li>Conserver ce bon pour rapprochement avec la facture fournisseur</li>
+          </ul>
+        </div>
+
+        <div class="signatures">
+          <div class="sig-box">Nom et signature du livreur</div>
+          <div class="sig-box">Nom et signature du responsable reception</div>
+        </div>
+
+        <div class="footer-note">
+          Document "Bon de reception" - fait foi pour la marchandise reellement livree<br>
+          Genere par NEXUS OS le \${new Date().toLocaleDateString('fr-FR')} a \${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </body></html>
+    \`);
+    win.document.close();
+    setTimeout(() => win.print(), 400);
+  }`
+);
+
+fs.writeFileSync(p, s);
+console.log("✅ printPO + printGRN separes");

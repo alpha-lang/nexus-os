@@ -1,17 +1,22 @@
 { pkgs, ... }: {
-  # Packages système
+  channel = "stable-24.05";
   packages = [
     pkgs.nodejs_22
     pkgs.pnpm
     pkgs.git
     pkgs.openssl
-    pkgs.postgresql_16   # si vous utilisez PostgreSQL
+    pkgs.postgresql_16   # ← ajouté
   ];
-
-  # Scripts exécutés au démarrage
-  shellHook = ''
-    export PNPM_HOME="$HOME/.local/share/pnpm"
-    export PATH="$PNPM_HOME:$PATH"
-    echo "🚀 Nexus OS - Environnement prêt !"
-  '';
+  env = {};
+  idx = {
+    extensions = [];
+    previews = {
+      enable = true;
+      previews = {};
+    };
+    workspace = {
+      onCreate = {};
+      onStart = {};
+    };
+  };
 }

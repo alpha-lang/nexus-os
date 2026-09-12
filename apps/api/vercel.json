@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter api exec prisma generate && pnpm --filter api run build:serverless",
+  "outputDirectory": ".",
+  "functions": {
+    "api/bundle.js": {
+      "memory": 1024,
+      "maxDuration": 30,
+      "includeFiles": "api/.prisma/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/bundle" }
+  ]
+}

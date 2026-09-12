@@ -1,0 +1,42 @@
+{
+  "name": "NEXUS OS - Plateforme de gestion",
+  "short_name": "NEXUS OS",
+  "description": "Plateforme SaaS de gestion d'entreprise : Hôtel, Commerce, ONG",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#14b8a6",
+  "orientation": "portrait-primary",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Réservations",
+      "url": "/dashboard/reservations",
+      "description": "Gérer les réservations"
+    },
+    {
+      "name": "Clients",
+      "url": "/dashboard/clients",
+      "description": "Gérer les clients"
+    },
+    {
+      "name": "Check-in / Check-out",
+      "url": "/dashboard/reservations/checkin",
+      "description": "Arrivées et départs du jour"
+    }
+  ]
+}

@@ -1,0 +1,607 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { PageHeader } from '../../../components/ui';
+
+// ─── Helpers ─────────────────────────────────────────────
+function formatBytes(b: number) {
+  if (b < 1024) return { v: b.toFixed(0), u: 'o' };
+  if (b < 1024 * 1024) return { v: (b / 1024).toFixed(1), u: 'Ko' };
+  return { v: (b / 1024 / 1024).toFixed(2), u: 'Mo' };
+}
+function humanSize(mo: number) {
+  if (mo < 0.001) return { v: Math.round(mo * 1024 * 1024).toString(), u: 'o' };
+  if (mo < 1) return { v: (mo * 1024).toFixed(1), u: 'Ko' };
+  return { v: mo.toFixed(2), u: 'Mo' };
+}
+function getSeverity(pct: number) {
+  if (pct >= 80) return { label: 'Critique', chip: 'bg-red-100 text-red-700', dot: 'bg-red-500', grad: 'from-red-500 to-rose-600', bar: 'bg-red-500' };
+  if (pct >= 50) return { label: 'Attention', chip: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500', grad: 'from-amber-500 to-orange-600', bar: 'bg-amber-500' };
+  if (pct > 0)   return { label: 'OK',        chip: 'bg-green-100 text-green-700', dot: 'bg-green-500', grad: 'from-green-500 to-emerald-600', bar: 'bg-green-500' };
+  return           { label: 'Vide',      chip: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400', grad: 'from-slate-400 to-slate-600', bar: 'bg-slate-300' };
+}
+
+interface Quota {
+  id: string;
+  organizationId: string;
+  usedStorage: number;
+  maxStorage: number;
+  lastBackup: string | null;
+  organization: { id: string; name: string };
+}
+interface BackupRow {
+  id: string;
+  organizationId: string;
+  fileName: string;
+  fileSize: number;
+  status: string;
+  createdAt: string;
+  organization: { id: string; name: string };
+}
+
+type SortKey = 'name' | 'usage-asc' | 'usage-desc' | 'backup-recent';
+type FilterKey = 'all' | 'critical' | 'warning' | 'ok' | 'empty';
+type ViewKey = 'table' | 'cards';
+
+const PER_PAGE_OPTIONS = [12, 24, 48];
+
+export default function StoragePage() {
+  const [tab, setTab] = useState<'orgs' | 'backups'>('orgs');
+  const [quotas, setQuotas] = useState<Quota[]>([]);
+  const [backups, setBackups] = useState<BackupRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<FilterKey>('all');
+  const [sort, setSort] = useState<SortKey>('usage-desc');
+  const [view, setView] = useState<ViewKey>('table');
+  const [perPage, setPerPage] = useState(12);
+  const [page, setPage] = useState(1);
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+
+  async function load() {
+    const [q, b] = await Promise.all([
+      fetch('/api/storage', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch('/api/storage/backups', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ]);
+    setQuotas(Array.isArray(q) ? q : []);
+    setBackups(Array.isArray(b) ? b : []);
+  }
+
+  useEffect(() => {
+    load().catch(console.error).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { setPage(1); }, [search, filter, sort, perPage]);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function backupNow(orgId: string, name: string) {
+    setBusy(orgId);
+    const res = await fetch(`/api/storage/organization/${orgId}/backup`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setBusy(null);
+    if (res.ok) {
+      showToast(`✅ Sauvegarde créée pour ${name}`);
+      await load();
+    } else {
+      showToast(`❌ Échec pour ${name}`);
+    }
+  }
+
+  async function downloadBackup(id: string, fileName: string) {
+    const res = await fetch(`/api/storage/backup/${id}/download`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) { showToast('❌ Téléchargement impossible'); return; }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || `backup-${id}.sql`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }
+
+  // ─── Données filtrées / triées / paginées ───
+  const processed = useMemo(() => {
+    let list = [...quotas];
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(r => r.organization?.name?.toLowerCase().includes(q));
+    }
+
+    list = list.filter(r => {
+      const pct = r.maxStorage > 0 ? (r.usedStorage / r.maxStorage) * 100 : 0;
+      if (filter === 'critical') return pct >= 80;
+      if (filter === 'warning') return pct >= 50 && pct < 80;
+      if (filter === 'ok') return pct > 0 && pct < 50;
+      if (filter === 'empty') return pct === 0;
+      return true;
+    });
+
+    list.sort((a, b) => {
+      if (sort === 'name') return (a.organization?.name || '').localeCompare(b.organization?.name || '');
+      if (sort === 'usage-asc') {
+        const pa = a.maxStorage > 0 ? a.usedStorage / a.maxStorage : 0;
+        const pb = b.maxStorage > 0 ? b.usedStorage / b.maxStorage : 0;
+        return pa - pb;
+      }
+      if (sort === 'usage-desc') {
+        const pa = a.maxStorage > 0 ? a.usedStorage / a.maxStorage : 0;
+        const pb = b.maxStorage > 0 ? b.usedStorage / b.maxStorage : 0;
+        return pb - pa;
+      }
+      if (sort === 'backup-recent') {
+        const da = a.lastBackup ? new Date(a.lastBackup).getTime() : 0;
+        const db = b.lastBackup ? new Date(b.lastBackup).getTime() : 0;
+        return db - da;
+      }
+      return 0;
+    });
+
+    return list;
+  }, [quotas, search, filter, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(processed.length / perPage));
+  const pageItems = processed.slice((page - 1) * perPage, page * perPage);
+
+  const kpis = useMemo(() => {
+    const totalOrgs = quotas.length;
+    const totalUsedMo = quotas.reduce((s, r) => s + (r.usedStorage || 0), 0);
+    const totalMaxMo = quotas.reduce((s, r) => s + (r.maxStorage || 0), 0);
+    const criticalCount = quotas.filter(r => r.maxStorage > 0 && (r.usedStorage / r.maxStorage) * 100 >= 80).length;
+    return { totalOrgs, totalUsedMo, totalMaxMo, criticalCount, totalBackups: backups.length };
+  }, [quotas, backups]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-teal-400 border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Stockage & Sauvegardes"
+        subtitle="Quotas calculés automatiquement à partir des données de chaque organisation"
+      />
+
+      {toast && (
+        <div className="fixed top-20 right-4 z-[100] bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-medium animate-in">
+          {toast}
+        </div>
+      )}
+
+      {/* ─── KPI CARDS ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>} label="Organisations" value={kpis.totalOrgs.toString()} accent="blue" />
+        <KpiCard icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>} label="Total utilisé" value={humanSize(kpis.totalUsedMo).v + ' ' + humanSize(kpis.totalUsedMo).u} accent="teal" />
+        <KpiCard icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>} label="Quota global" value={kpis.totalMaxMo.toLocaleString('fr-FR') + ' Mo'} accent="purple" />
+        <KpiCard
+          icon={kpis.criticalCount > 0
+            ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+          label="Critiques"
+          value={kpis.criticalCount.toString()}
+          accent={kpis.criticalCount > 0 ? 'red' : 'green'}
+          hint={kpis.criticalCount > 0 ? 'à traiter' : 'tout va bien'}
+        />
+      </div>
+
+      {/* ─── ONGLETS ─── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-1 flex gap-1">
+        <button
+          onClick={() => setTab('orgs')}
+          className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-bold transition ${
+            tab === 'orgs' ? 'bg-linear-to-r from-blue-600 to-teal-500 text-white shadow' : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Organisations <span className="opacity-70 ml-1">({quotas.length})</span>
+        </button>
+        <button
+          onClick={() => setTab('backups')}
+          className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-bold transition ${
+            tab === 'backups' ? 'bg-linear-to-r from-blue-600 to-teal-500 text-white shadow' : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Sauvegardes <span className="opacity-70 ml-1">({backups.length})</span>
+        </button>
+      </div>
+
+      {tab === 'orgs' && (
+        <>
+          {/* ─── TOOLBAR ─── */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Rechercher une organisation..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 focus:bg-white transition"
+                />
+              </div>
+              <select
+                value={filter}
+                onChange={e => setFilter(e.target.value as FilterKey)}
+                className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-teal-400 cursor-pointer"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="critical">Critique (&gt;80%)</option>
+                <option value="warning">Attention (50-80%)</option>
+                <option value="ok">OK (&lt;50%)</option>
+                <option value="empty">Vide (0%)</option>
+              </select>
+              <select
+                value={sort}
+                onChange={e => setSort(e.target.value as SortKey)}
+                className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-teal-400 cursor-pointer"
+              >
+                <option value="usage-desc">Usage ↓</option>
+                <option value="usage-asc">Usage ↑</option>
+                <option value="name">Nom A→Z</option>
+                <option value="backup-recent">Backup récent</option>
+              </select>
+            </div>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span className="font-semibold">{processed.length}</span> résultat{processed.length > 1 ? 's' : ''}
+                {(search || filter !== 'all') && (
+                  <button
+                    onClick={() => { setSearch(''); setFilter('all'); }}
+                    className="text-teal-600 hover:underline font-medium"
+                  >
+                    ✕ Effacer
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setView('table')}
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition ${view === 'table' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Tableau</button>
+                  <button
+                    onClick={() => setView('cards')}
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition ${view === 'cards' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Cartes</button>
+                </div>
+                <select
+                  value={perPage}
+                  onChange={e => setPerPage(parseInt(e.target.value))}
+                  className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer"
+                >
+                  {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / page</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ─── CONTENU ─── */}
+          {processed.length === 0 ? (
+            <EmptyState hasFilter={!!search || filter !== 'all'} />
+          ) : view === 'table' ? (
+            <OrgsTable items={pageItems} onBackup={backupNow} busy={busy} />
+          ) : (
+            <OrgsCards items={pageItems} onBackup={backupNow} busy={busy} />
+          )}
+
+          {/* ─── PAGINATION ─── */}
+          {totalPages > 1 && (
+            <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+          )}
+        </>
+      )}
+
+      {tab === 'backups' && (
+        <BackupsList items={backups} onDownload={downloadBackup} />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SOUS-COMPOSANTS
+// ═══════════════════════════════════════════════════════════
+
+function KpiCard({ icon, label, value, accent, hint }: { icon: React.ReactNode; label: string; value: string; accent: 'blue'|'teal'|'purple'|'red'|'green'; hint?: string }) {
+  const accents = {
+    blue: 'from-blue-500 to-blue-600',
+    teal: 'from-teal-500 to-emerald-600',
+    purple: 'from-purple-500 to-indigo-600',
+    red: 'from-red-500 to-rose-600',
+    green: 'from-green-500 to-emerald-600',
+  };
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition">
+      <div className="flex items-center gap-3 mb-2">
+        <div className={`w-9 h-9 rounded-xl bg-linear-to-br ${accents[accent]} flex items-center justify-center text-lg shrink-0`}>
+          <span className="drop-shadow">{icon}</span>
+        </div>
+        <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">{label}</p>
+      </div>
+      <p className="text-xl lg:text-2xl font-black text-slate-900 leading-tight">{value}</p>
+      {hint && <p className="text-[10px] text-slate-400 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+function OrgsTable({ items, onBackup, busy }: { items: Quota[]; onBackup: (id: string, name: string) => void; busy: string | null }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 border-b border-gray-200">
+            <tr>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Organisation</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider text-right whitespace-nowrap">Utilisé</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Usage</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Dernier backup</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {items.map(r => {
+              const pct = r.maxStorage > 0 ? (r.usedStorage / r.maxStorage) * 100 : 0;
+              const sev = getSeverity(pct);
+              const used = humanSize(r.usedStorage);
+              return (
+                <tr key={r.id} className="hover:bg-teal-50/30 transition">
+                  <td className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl bg-linear-to-br ${sev.grad} text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0`}>
+                        {r.organization?.name?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-900 text-sm truncate">{r.organization?.name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">id {r.organizationId.slice(0, 12)}…</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-3 text-right whitespace-nowrap">
+                    <div className="font-bold text-slate-900">{used.v} <span className="text-xs text-slate-500">{used.u}</span></div>
+                    <div className="text-[10px] text-slate-400">/ {r.maxStorage.toLocaleString('fr-FR')} Mo</div>
+                  </td>
+                  <td className="p-3 min-w-[140px]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${sev.chip}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`}></span>
+                        {sev.label}
+                      </span>
+                      <span className="text-xs font-bold text-slate-700">{pct.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full ${sev.bar} rounded-full transition-all`} style={{ width: `${Math.max(pct, 0.5)}%` }}></div>
+                    </div>
+                  </td>
+                  <td className="p-3 text-xs text-slate-500 hidden md:table-cell whitespace-nowrap">
+                    {r.lastBackup ? (
+                      <>
+                        <div className="font-medium text-slate-700">{new Date(r.lastBackup).toLocaleDateString('fr-FR')}</div>
+                        <div className="text-slate-400">{new Date(r.lastBackup).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                      </>
+                    ) : (
+                      <span className="text-slate-300 italic">Jamais</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-center whitespace-nowrap">
+                    <button
+                      onClick={() => onBackup(r.organizationId, r.organization?.name || '')}
+                      disabled={busy === r.organizationId}
+                      title="Sauvegarder maintenant"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-700 hover:bg-teal-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {busy === r.organizationId ? (
+                        <span className="w-3 h-3 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></span>
+                      ) : (
+                        <span>��</span>
+                      )}
+                      <span className="hidden sm:inline">Sauvegarder</span>
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function OrgsCards({ items, onBackup, busy }: { items: Quota[]; onBackup: (id: string, name: string) => void; busy: string | null }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      {items.map(r => {
+        const pct = r.maxStorage > 0 ? (r.usedStorage / r.maxStorage) * 100 : 0;
+        const sev = getSeverity(pct);
+        const used = humanSize(r.usedStorage);
+        return (
+          <div key={r.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition">
+            <div className="flex items-start gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${sev.grad} text-white flex items-center justify-center font-bold shadow-sm shrink-0`}>
+                {r.organization?.name?.charAt(0).toUpperCase() || '?'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-slate-900 text-sm truncate">{r.organization?.name}</div>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${sev.chip} mt-1`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`}></span>
+                  {sev.label}
+                </span>
+              </div>
+            </div>
+            <div className="mb-3">
+              <div className="flex items-baseline justify-between mb-1">
+                <span className="text-lg font-black text-slate-900">{used.v} <span className="text-xs font-semibold text-slate-500">{used.u}</span></span>
+                <span className="text-xs font-bold text-slate-600">{pct.toFixed(1)}%</span>
+              </div>
+              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-1">
+                <div className={`h-full ${sev.bar} rounded-full transition-all`} style={{ width: `${Math.max(pct, 0.5)}%` }}></div>
+              </div>
+              <div className="text-[10px] text-slate-400">sur {r.maxStorage.toLocaleString('fr-FR')} Mo</div>
+            </div>
+            <div className="text-[10px] text-slate-400 mb-3 pb-3 border-b border-slate-100">
+              {r.lastBackup
+                ? `${new Date(r.lastBackup).toLocaleDateString('fr-FR')} à ${new Date(r.lastBackup).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Jamais sauvegardé'}
+            </div>
+            <button
+              onClick={() => onBackup(r.organizationId, r.organization?.name || '')}
+              disabled={busy === r.organizationId}
+              className="w-full py-2 rounded-xl text-xs font-bold bg-teal-50 text-teal-700 hover:bg-teal-100 transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+            >
+              {busy === r.organizationId ? (
+                <><span className="w-3 h-3 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></span> En cours...</>
+              ) : (
+                <>
+                Sauvegarder maintenant</>
+              )}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  const pages: (number | '…')[] = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - page) <= 1) pages.push(i);
+    else if (pages[pages.length - 1] !== '…') pages.push('…');
+  }
+  return (
+    <div className="flex items-center justify-center gap-1 py-3">
+      <button
+        onClick={() => onChange(Math.max(1, page - 1))}
+        disabled={page === 1}
+        className="w-9 h-9 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition"
+      >←</button>
+      {pages.map((p, i) => p === '…' ? (
+        <span key={`e${i}`} className="px-2 text-slate-400">…</span>
+      ) : (
+        <button
+          key={p}
+          onClick={() => onChange(p)}
+          className={`w-9 h-9 rounded-lg font-bold text-sm transition ${
+            p === page
+              ? 'bg-linear-to-r from-blue-600 to-teal-500 text-white shadow-md'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+          }`}
+        >{p}</button>
+      ))}
+      <button
+        onClick={() => onChange(Math.min(totalPages, page + 1))}
+        disabled={page === totalPages}
+        className="w-9 h-9 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition"
+      >→</button>
+    </div>
+  );
+}
+
+function EmptyState({ hasFilter }: { hasFilter: boolean }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-3">
+        {hasFilter
+        ? <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        : <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>}
+      </div>
+      <p className="text-slate-600 font-semibold">
+        {hasFilter ? 'Aucun résultat' : 'Aucune organisation'}
+      </p>
+      <p className="text-xs text-slate-400 mt-1">
+        {hasFilter ? 'Essayez de modifier la recherche ou les filtres' : 'Créez une organisation pour commencer'}
+      </p>
+    </div>
+  );
+}
+
+function BackupsList({ items, onDownload }: { items: BackupRow[]; onDownload: (id: string, fileName: string) => void }) {
+  if (items.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+        </div>
+        <p className="text-slate-600 font-semibold">Aucune sauvegarde</p>
+        <p className="text-xs text-slate-400 mt-1">Lancez une sauvegarde depuis l'onglet Organisations</p>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 border-b border-gray-200">
+            <tr>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider">Organisation</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden sm:table-cell">Fichier</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider text-right whitespace-nowrap">Taille</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell whitespace-nowrap">Date</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider text-center">Statut</th>
+              <th className="p-3 font-semibold text-slate-600 text-xs uppercase tracking-wider text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {items.map(b => {
+              const sz = formatBytes(b.fileSize);
+              return (
+                <tr key={b.id} className="hover:bg-teal-50/30 transition">
+                  <td className="p-3">
+                    <div className="font-medium text-slate-900 text-sm">{b.organization?.name}</div>
+                  </td>
+                  <td className="p-3 text-xs text-slate-500 font-mono truncate max-w-[200px] hidden sm:table-cell">
+                    {b.fileName}
+                  </td>
+                  <td className="p-3 text-right whitespace-nowrap">
+                    <span className="font-bold text-slate-900">{sz.v}</span>
+                    <span className="text-xs text-slate-500 ml-1">{sz.u}</span>
+                  </td>
+                  <td className="p-3 text-xs text-slate-600 whitespace-nowrap hidden md:table-cell">
+                    <div>{new Date(b.createdAt).toLocaleDateString('fr-FR')}</div>
+                    <div className="text-slate-400">{new Date(b.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                  </td>
+                  <td className="p-3 text-center">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                      {b.status}
+                    </span>
+                  </td>
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={() => onDownload(b.id, b.fileName)}
+                      className="inline-flex items-center text-xs font-bold text-blue-600 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition"
+                    >
+                      Télécharger
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,291 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import ConfirmDialog from '../../../../components/ConfirmDialog';
+import { Modal, Button, Badge, FormField, Input, Select, Textarea } from '../../../../components/ui';
+
+const STATUS: Record<string, { label: string; variant: any; icon: string }> = {
+  PENDING: { label: 'À faire', variant: 'warning', icon: '⏳' },
+  IN_PROGRESS: { label: 'En cours', variant: 'info', icon: '🧹' },
+  DONE: { label: 'Terminé', variant: 'success', icon: '✅' },
+  VERIFIED: { label: 'Vérifié', variant: 'neutral', icon: '🔍' },
+};
+
+const PRIORITY: Record<string, { label: string; variant: any }> = {
+  LOW: { label: 'Basse', variant: 'neutral' },
+  NORMAL: { label: 'Normale', variant: 'info' },
+  HIGH: { label: 'Haute', variant: 'warning' },
+  URGENT: { label: 'Urgente', variant: 'danger' },
+};
+
+export default function HousekeepingPage() {
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [roomId, setRoomId] = useState('');
+  const [assignedToId, setAssignedToId] = useState('');
+  const [priority, setPriority] = useState('NORMAL');
+  const [status, setStatus] = useState('PENDING');
+  const [notes, setNotes] = useState('');
+  const [dueDate, setDueDate] = useState('');
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+
+  async function load() {
+    const [tRes, rRes, uRes] = await Promise.all([
+      fetch('/api/hotel/housekeeping', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+    const [t, r, u] = await Promise.all([tRes.json(), rRes.json(), uRes.json()]);
+    setTasks(Array.isArray(t) ? t : []);
+    setRooms(Array.isArray(r) ? r : []);
+    setUsers(Array.isArray(u) ? u : []);
+  }
+
+  useEffect(() => {
+    load().catch(console.error).finally(() => setLoading(false));
+  }, []);
+
+  function openModal(task?: any) {
+    setError(null);
+    if (task) {
+      setEditing(task);
+      setRoomId(task.roomId);
+      setAssignedToId(task.assignedToId || '');
+      setPriority(task.priority);
+      setStatus(task.status);
+      setNotes(task.notes || '');
+      setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : '');
+    } else {
+      setEditing(null);
+      setRoomId(rooms[0]?.id || '');
+      setAssignedToId('');
+      setPriority('NORMAL');
+      setStatus('PENDING');
+      setNotes('');
+      setDueDate('');
+    }
+    setShowModal(true);
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null); setSaving(true);
+    const method = editing ? 'PATCH' : 'POST';
+    const url = editing ? `/api/hotel/housekeeping/${editing.id}` : '/api/hotel/housekeeping';
+    const res = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId, assignedToId: assignedToId || null, priority, status, notes, dueDate: dueDate || null }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setShowModal(false); setEditing(null);
+      await load();
+    } else {
+      const data = await res.json();
+      setError(data.message || 'Erreur');
+    }
+  }
+
+  async function quickStatus(task: any, newStatus: string) {
+    await fetch(`/api/hotel/housekeeping/${task.id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    await load();
+  }
+
+  async function confirmDelete() {
+    if (!taskToDelete) return;
+    setIsDeleting(true);
+    await fetch(`/api/hotel/housekeeping/${taskToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    setTasks(tasks.filter((t) => t.id !== taskToDelete.id));
+    setTaskToDelete(null); setIsDeleting(false);
+  }
+
+  if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
+
+  const filtered = filter ? tasks.filter((t) => t.status === filter) : tasks;
+  const pendingCount = tasks.filter((t) => t.status === 'PENDING').length;
+  const progressCount = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
+  const doneCount = tasks.filter((t) => t.status === 'DONE' || t.status === 'VERIFIED').length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Housekeeping</h1>
+          <p className="text-slate-500 mt-1 text-sm">
+            {pendingCount} à faire • {progressCount} en cours • {doneCount} terminé{doneCount > 1 ? 's' : ''}
+          </p>
+        </div>
+        <Button
+          onClick={() => openModal()}
+          icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>}
+        >
+          Nouvelle tâche
+        </Button>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-2 flex flex-wrap gap-1">
+        {[
+          { v: '', l: `Toutes (${tasks.length})` },
+          { v: 'PENDING', l: `À faire (${pendingCount})` },
+          { v: 'IN_PROGRESS', l: `En cours (${progressCount})` },
+          { v: 'DONE', l: `Terminé (${doneCount})` },
+        ].map((f) => (
+          <button
+            key={f.v}
+            onClick={() => setFilter(f.v)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              filter === f.v ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            {f.l}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((task) => {
+          const meta = STATUS[task.status] || STATUS.PENDING;
+          const pr = PRIORITY[task.priority] || PRIORITY.NORMAL;
+          return (
+            <div key={task.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-sm">
+                    {task.room?.number}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">N° {task.room?.number}</h3>
+                    <p className="text-xs text-slate-500">{task.room?.roomType?.name}</p>
+                  </div>
+                </div>
+                <Badge variant={meta.variant}>{meta.icon} {meta.label}</Badge>
+              </div>
+
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <Badge variant={pr.variant}>{pr.label}</Badge>
+                {task.assignedTo && (
+                  <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-full">
+                    👤 {task.assignedTo.name || task.assignedTo.email}
+                  </span>
+                )}
+              </div>
+
+              {task.notes && <p className="text-sm text-slate-600 mb-3 line-clamp-2">{task.notes}</p>}
+
+              {task.dueDate && (
+                <p className="text-xs text-slate-500 mb-3">
+                  ⏰ Échéance : {new Date(task.dueDate).toLocaleDateString('fr-FR')}
+                </p>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+                {task.status === 'PENDING' && (
+                  <button onClick={() => quickStatus(task, 'IN_PROGRESS')} className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
+                    ▶ Commencer
+                  </button>
+                )}
+                {task.status === 'IN_PROGRESS' && (
+                  <button onClick={() => quickStatus(task, 'DONE')} className="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 font-medium">
+                    ✓ Marquer terminé
+                  </button>
+                )}
+                {(task.status === 'DONE' || task.status === 'VERIFIED') && (
+                  <button onClick={() => quickStatus(task, 'PENDING')} className="text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 font-medium">
+                    ↻ Rouvrir
+                  </button>
+                )}
+                <button onClick={() => openModal(task)} className="text-xs text-blue-600 hover:underline ml-auto">Modifier</button>
+                <button onClick={() => setTaskToDelete(task)} className="text-xs text-red-600 hover:underline">Suppr.</button>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-gray-200 text-slate-400">
+            Aucune tâche
+          </div>
+        )}
+      </div>
+
+      <Modal
+        open={showModal}
+        onClose={() => { setShowModal(false); setEditing(null); }}
+        title={editing ? 'Modifier la tâche' : 'Nouvelle tâche de ménage'}
+        subtitle={editing ? `Chambre ${editing.room?.number}` : 'Assignez une tâche à un agent'}
+        icon={<span className="text-2xl">🧹</span>}
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setShowModal(false); setEditing(null); }}>Annuler</Button>
+            <button type="submit" form="hk-form" disabled={saving} className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50">
+              {saving ? 'Enregistrement...' : editing ? 'Enregistrer' : 'Créer'}
+            </button>
+          </div>
+        }
+      >
+        <form id="hk-form" onSubmit={save} className="space-y-4">
+          {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
+
+          <FormField label="Chambre" required>
+            <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} required>
+              <option value="">— Choisir —</option>
+              {rooms.map((r) => <option key={r.id} value={r.id}>N° {r.number} — {r.roomType?.name}</option>)}
+            </Select>
+          </FormField>
+
+          <FormField label="Assigné à">
+            <Select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}>
+              <option value="">— Non assigné —</option>
+              {users.map((u) => <option key={u.id} value={u.id}>{u.name || u.email} ({u.role})</option>)}
+            </Select>
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Priorité">
+              <Select value={priority} onChange={(e) => setPriority(e.target.value)}>
+                {Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Statut">
+              <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+                {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </Select>
+            </FormField>
+          </div>
+
+          <FormField label="Échéance">
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </FormField>
+
+          <FormField label="Notes">
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Instructions, remarques..." />
+          </FormField>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!taskToDelete}
+        title="Supprimer la tâche"
+        message="Cette tâche sera définitivement supprimée."
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+    </div>
+  );
+}

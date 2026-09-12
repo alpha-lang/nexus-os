@@ -1,0 +1,187 @@
+'use client';
+
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  closestCorners,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useState } from 'react';
+
+export interface KanbanColumn {
+  id: string;
+  title: string;
+  color: string;
+  icon?: string;
+}
+
+export interface KanbanItem {
+  id: string;
+  columnId: string;
+  data: any;
+}
+
+interface Props {
+  columns: KanbanColumn[];
+  items: KanbanItem[];
+  onMove: (itemId: string, newColumnId: string) => void;
+  renderItem: (item: KanbanItem) => React.ReactNode;
+}
+
+function SortableCard({
+  item,
+  renderItem,
+}: {
+  item: KanbanItem;
+  renderItem: (item: KanbanItem) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="cursor-grab active:cursor-grabbing"
+    >
+      {renderItem(item)}
+    </div>
+  );
+}
+
+function DroppableColumn({
+  column,
+  items,
+  renderItem,
+}: {
+  column: KanbanColumn;
+  items: KanbanItem[];
+  renderItem: (item: KanbanItem) => React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex flex-col rounded-2xl bg-slate-50 border-2 transition min-h-[500px] ${
+        isOver ? 'border-teal-400 bg-teal-50/50' : 'border-slate-200'
+      }`}
+    >
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-slate-200">
+        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${column.color}`}></span>
+        <h3 className="font-semibold text-slate-900 text-sm truncate flex-1">{column.title}</h3>
+        <span className="text-xs font-bold text-slate-400 bg-white px-2 py-0.5 rounded-full shrink-0">
+          {items.length}
+        </span>
+      </div>
+
+      <div className="flex-1 p-2.5 space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
+        <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+          {items.map((item) => (
+            <SortableCard key={item.id} item={item} renderItem={renderItem} />
+          ))}
+        </SortableContext>
+
+        {items.length === 0 && (
+          <div className="text-center py-6 text-xs text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+            Glissez une carte ici
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function KanbanBoard({ columns, items, onMove, renderItem }: Props) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveId(e.active.id as string);
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    setActiveId(null);
+    const { active, over } = e;
+    if (!over) return;
+
+    const itemId = active.id as string;
+    const overId = over.id as string;
+
+    const targetCol = columns.find((c) => c.id === overId);
+    if (targetCol) {
+      const item = items.find((i) => i.id === itemId);
+      if (item && item.columnId !== targetCol.id) {
+        onMove(itemId, targetCol.id);
+      }
+      return;
+    }
+
+    const overItem = items.find((i) => i.id === overId);
+    if (overItem) {
+      const item = items.find((i) => i.id === itemId);
+      if (item && item.columnId !== overItem.columnId) {
+        onMove(itemId, overItem.columnId);
+      }
+    }
+  }
+
+  const activeItem = activeId ? items.find((i) => i.id === activeId) : null;
+
+  // Utilise le nombre de colonnes pour créer un grid dynamique
+  const gridCols = `grid-cols-${columns.length}`;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      {/* Sur desktop : grid qui remplit ; sur mobile : scroll horizontal */}
+      <div className="w-full overflow-x-auto">
+        <div
+          className="grid gap-3 min-w-max lg:min-w-0"
+          style={{
+            gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`,
+            minWidth: 'min-content',
+          }}
+        >
+          {columns.map((col) => (
+            <div key={col.id} className="min-w-[220px]">
+              <DroppableColumn
+                column={col}
+                items={items.filter((i) => i.columnId === col.id)}
+                renderItem={renderItem}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <DragOverlay>
+        {activeItem && <div className="rotate-2 shadow-2xl opacity-95">{renderItem(activeItem)}</div>}
+      </DragOverlay>
+    </DndContext>
+  );
+}

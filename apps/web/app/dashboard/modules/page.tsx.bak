@@ -1,0 +1,304 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import ConfirmDialog from '../../../components/ConfirmDialog';
+import { Modal, Button, Badge, PageHeader, FormField, Input, Select, Textarea } from '../../../components/ui';
+
+function slugify(s: string) {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+export default function ModulesPage() {
+  const [modules, setModules] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [moduleToDelete, setModuleToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [name, setName] = useState('');
+  const [types, setTypes] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
+  const [price, setPrice] = useState('');
+  const [status, setStatus] = useState('ACTIVE');
+  const [route, setRoute] = useState('');
+  const [routeManuallyEdited, setRouteManuallyEdited] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const isOwner = typeof window !== 'undefined' && localStorage.getItem('isOwner') === 'true';
+
+  useEffect(() => {
+    if (!routeManuallyEdited && name.trim()) {
+      setRoute(`/dashboard/${slugify(name)}`);
+    }
+  }, [name, routeManuallyEdited]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch('/api/modules', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then((data) => setModules(Array.isArray(data) ? data : []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function createModule(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+    const token = localStorage.getItem('token');
+    const method = editing ? 'PATCH' : 'POST';
+    const url = editing ? `/api/modules/${editing.id}` : '/api/modules';
+
+    const res = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, types, description, price: parseFloat(price) || 0, status, route }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      resetForm();
+      setShowModal(false);
+      setEditing(null);
+      const updated = await fetch('/api/modules', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+      setModules(Array.isArray(updated) ? updated : []);
+    } else {
+      const data = await res.json();
+      setError(data.message || 'Erreur');
+    }
+  }
+
+  function resetForm() {
+    setName(''); setTypes([]); setDescription(''); setPrice('');
+    setStatus('ACTIVE'); setRoute(''); setRouteManuallyEdited(false);
+  }
+
+  function toggleType(type: string) {
+    setTypes((prev) => prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]);
+  }
+
+  async function confirmDelete() {
+    if (!moduleToDelete) return;
+    setIsDeleting(true);
+    const token = localStorage.getItem('token');
+    await fetch(`/api/modules/${moduleToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    setModules(modules.filter((m) => m.id !== moduleToDelete.id));
+    setModuleToDelete(null); setIsDeleting(false);
+  }
+
+  function openEdit(module: any) {
+    setEditing(module);
+    setName(module.name);
+    setTypes(module.types ? module.types.split(',') : []);
+    setDescription(module.description || '');
+    setPrice(module.price?.toString() || '');
+    setStatus(module.status || 'ACTIVE');
+    setRoute(module.route || '');
+    setRouteManuallyEdited(true);
+    setShowModal(true);
+  }
+
+  function openCreate() {
+    resetForm();
+    setEditing(null);
+    setShowModal(true);
+  }
+
+  if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
+
+  const availableTypes = ['COMMERCE', 'HOTEL', 'ONG', 'MICROFINANCE', 'BANQUE'];
+  const totalModules = modules.length;
+  const activeModules = modules.filter((m) => m.status === 'ACTIVE').length;
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Modules & Services"
+        subtitle={`${totalModules} module${totalModules > 1 ? 's' : ''} • ${activeModules} actif${activeModules > 1 ? 's' : ''}`}
+        actions={
+          isOwner && (
+            <Button
+              onClick={openCreate}
+              icon={
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+              }
+            >
+              Ajouter un module
+            </Button>
+          )
+        }
+      />
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-gray-200">
+              <tr>
+                <th className="p-4 font-semibold text-slate-600">Nom</th>
+                <th className="p-4 font-semibold text-slate-600">Types</th>
+                <th className="p-4 font-semibold text-slate-600">Route</th>
+                <th className="p-4 font-semibold text-slate-600 text-right">Prix</th>
+                <th className="p-4 font-semibold text-slate-600">Statut</th>
+                {isOwner && <th className="p-4 font-semibold text-slate-600 text-center">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {modules.map((m) => (
+                <tr key={m.id} className="hover:bg-teal-50/40 transition">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-linear-to-br from-blue-500 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0">
+                        {m.name?.charAt(0)}
+                      </div>
+                      <div className="font-medium text-slate-900">{m.name}</div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    {m.types ? (
+                      <div className="flex flex-wrap gap-1">
+                        {m.types.split(',').map((t: string) => (
+                          <span key={t} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded">{t}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <Badge variant="info">Universel</Badge>
+                    )}
+                  </td>
+                  <td className="p-4 font-mono text-xs text-slate-600">{m.route || '—'}</td>
+                  <td className="p-4 text-right font-semibold text-slate-900">
+                    {m.price ? m.price.toLocaleString('fr-FR') + ' Ar' : <span className="text-green-600">Gratuit</span>}
+                  </td>
+                  <td className="p-4">
+                    <Badge variant={m.status === 'ACTIVE' ? 'success' : 'danger'}>{m.status === 'ACTIVE' ? 'Actif' : 'Inactif'}</Badge>
+                  </td>
+                  {isOwner && (
+                    <td className="p-4 text-center">
+                      <button onClick={() => openEdit(m)} className="text-blue-600 hover:underline mr-2 text-sm">Modifier</button>
+                      <button onClick={() => setModuleToDelete(m)} className="text-red-600 hover:underline text-sm">Supprimer</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {modules.length === 0 && (
+                <tr><td colSpan={isOwner ? 6 : 5} className="p-8 text-center text-slate-400">Aucun module</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal
+        open={showModal}
+        onClose={() => { setShowModal(false); setEditing(null); }}
+        title={editing ? 'Modifier le module' : 'Nouveau module'}
+        subtitle={editing ? editing.name : 'Créez un module vendable aux entreprises'}
+        icon={<span className="text-2xl">📦</span>}
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setShowModal(false); setEditing(null); }}>Annuler</Button>
+            <button
+              type="submit"
+              form="module-form"
+              disabled={saving}
+              className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+            >
+              {saving ? 'Enregistrement...' : editing ? 'Enregistrer' : 'Créer le module'}
+            </button>
+          </div>
+        }
+      >
+        <form id="module-form" onSubmit={createModule} className="space-y-6">
+          {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
+
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-4 bg-linear-to-b from-blue-500 to-teal-500 rounded-full"></div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Informations</h3>
+            </div>
+            <div className="space-y-4">
+              <FormField label="Nom du module" required>
+                <Input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Clients, Caisse, Stock…" required />
+              </FormField>
+
+              <FormField label="Description">
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Que fait ce module ?" />
+              </FormField>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-4 bg-linear-to-b from-blue-500 to-teal-500 rounded-full"></div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ciblage</h3>
+            </div>
+            <FormField label="Types d'entreprises cibles" hint="Aucun coché = universel (tous les types)">
+              <div className="border border-gray-200 rounded-xl p-3 grid grid-cols-2 gap-2">
+                {availableTypes.map((type) => (
+                  <label key={type} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={types.includes(type)} onChange={() => toggleType(type)} className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500" />
+                    <span className="text-sm text-slate-700">{type}</span>
+                  </label>
+                ))}
+              </div>
+            </FormField>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-4 bg-linear-to-b from-blue-500 to-teal-500 rounded-full"></div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Route & prix</h3>
+            </div>
+            <div className="space-y-4">
+              <FormField label="Route (chemin de la page)">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={route}
+                    onChange={(e) => { setRoute(e.target.value); setRouteManuallyEdited(true); }}
+                    placeholder="/dashboard/clients"
+                    className="font-mono text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setRouteManuallyEdited(false); setRoute(`/dashboard/${slugify(name)}`); }}
+                    className="px-3 py-2 bg-slate-100 rounded-xl text-xs font-medium hover:bg-slate-200 shrink-0"
+                  >
+                    🔄 Auto
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  {routeManuallyEdited ? 'Modifié manuellement' : 'Auto-généré depuis le nom'}
+                </p>
+              </FormField>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Prix (Ar)">
+                  <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="30000" />
+                </FormField>
+                <FormField label="Statut">
+                  <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+                    <option value="ACTIVE">Actif</option>
+                    <option value="INACTIVE">Inactif</option>
+                  </Select>
+                </FormField>
+              </div>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!moduleToDelete}
+        title="Supprimer le module"
+        message={`Voulez-vous vraiment supprimer "${moduleToDelete?.name}" ?`}
+        onClose={() => setModuleToDelete(null)}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+    </div>
+  );
+}

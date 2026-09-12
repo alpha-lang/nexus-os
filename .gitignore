@@ -1,9 +1,49 @@
-node_modules
-.next
-dist
-build
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+.next/
+.turbo/
+out/
+coverage/
+
+# Env
 .env
 .env.*
 !.env.example
+
+# Logs
 *.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / IDE
 .DS_Store
+.idea/
+.vscode/
+
+# Vercel
+.vercel/
+
+# Prisma (engines générés)
+apps/api/api/.prisma/
+apps/api/api/bundle.js
+
+# Backups & dumps (NE JAMAIS COMMITTER)
+*.sql
+*.dump
+nexus-os-source-dump.txt
+
+# Scripts temporaires (à supprimer à terme)
+apps/api/patch-*.js
+apps/api/fix-*.js
+apps/api/check-*.js
+apps/api/insert-*.js
+apps/api/link-*.js
+apps/api/set-*.js
+apps/api/rename-*.js
+apps/api/backfill.js
+apps/api/count.js

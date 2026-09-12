@@ -1,0 +1,99 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import ConfirmDialog from '../../../components/ConfirmDialog';
+import { Button, Badge, PageHeader } from '../../../components/ui';
+
+export default function BillingPage() {
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [paymentToDelete, setPaymentToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+
+  async function load() {
+    const res = await fetch('/api/billing', { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    setPayments(Array.isArray(data) ? data : []);
+  }
+
+  useEffect(() => {
+    load().catch(console.error).finally(() => setLoading(false));
+  }, []);
+
+  async function markAsPaid(id: string) {
+    await fetch(`/api/billing/mark-paid/${id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await load();
+  }
+
+  async function confirmDelete() {
+    if (!paymentToDelete) return;
+    setIsDeleting(true);
+    await fetch(`/api/billing/${paymentToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    setPayments(payments.filter((p) => p.id !== paymentToDelete.id));
+    setPaymentToDelete(null); setIsDeleting(false);
+  }
+
+  if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
+
+  const totalPaid = payments.filter((p) => p.status === 'PAID').reduce((s, p) => s + p.amount, 0);
+  const totalPending = payments.filter((p) => p.status === 'PENDING').reduce((s, p) => s + p.amount, 0);
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Facturation"
+        subtitle={`${payments.length} facture${payments.length > 1 ? 's' : ''} • ${totalPaid.toLocaleString('fr-FR')} Ar payés • ${totalPending.toLocaleString('fr-FR')} Ar en attente`}
+      />
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-gray-200">
+              <tr>
+                <th className="p-4 font-semibold text-slate-600">Organisation</th>
+                <th className="p-4 font-semibold text-slate-600 text-right">Montant</th>
+                <th className="p-4 font-semibold text-slate-600">Période</th>
+                <th className="p-4 font-semibold text-slate-600">Date</th>
+                <th className="p-4 font-semibold text-slate-600">Statut</th>
+                <th className="p-4 font-semibold text-slate-600 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {payments.map((p) => (
+                <tr key={p.id} className="hover:bg-teal-50/40 transition">
+                  <td className="p-4 font-medium text-slate-900">{p.organization?.name}</td>
+                  <td className="p-4 text-right font-semibold text-slate-900">{p.amount.toLocaleString('fr-FR')} Ar</td>
+                  <td className="p-4 text-slate-600 text-xs">{p.note || '—'}</td>
+                  <td className="p-4 text-slate-500 text-xs">{new Date(p.date).toLocaleDateString('fr-FR')}</td>
+                  <td className="p-4">
+                    <Badge variant={p.status === 'PAID' ? 'success' : 'warning'}>{p.status === 'PAID' ? 'Payé' : 'En attente'}</Badge>
+                  </td>
+                  <td className="p-4 text-center">
+                    {p.status === 'PENDING' && (
+                      <button onClick={() => markAsPaid(p.id)} className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded hover:bg-green-100 mr-2">Confirmer</button>
+                    )}
+                    <button onClick={() => setPaymentToDelete(p)} className="text-red-600 text-sm hover:underline">Supprimer</button>
+                  </td>
+                </tr>
+              ))}
+              {payments.length === 0 && (
+                <tr><td colSpan={6} className="p-8 text-center text-slate-400">Aucune facture</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={!!paymentToDelete}
+        title="Supprimer la facture"
+        message={`Voulez-vous vraiment supprimer cette facture de ${paymentToDelete?.amount?.toLocaleString('fr-FR')} Ar ?`}
+        onClose={() => setPaymentToDelete(null)}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
+    </div>
+  );
+}
