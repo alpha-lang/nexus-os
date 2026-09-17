@@ -494,22 +494,31 @@ export class StockService {
       throw new BadRequestException('Les magasins source et destination sont identiques');
     }
 
-    const item = await this.prisma.stockItem.findFirst({
-      where: { id: data.itemId, organizationId: orgId },
-    });
-    if (!item) throw new NotFoundException('Article introuvable');
-
     const quantity = Math.abs(parseFloat(data.quantity) || 0);
     if (quantity <= 0) throw new BadRequestException('Quantite invalide');
 
-    const fromStock = await this.prisma.stockItemStock.findUnique({
-      where: { itemId_warehouseId: { itemId: item.id, warehouseId: data.fromWarehouseId } },
-    });
-    if (!fromStock || fromStock.quantity < quantity) {
-      throw new BadRequestException(`Stock insuffisant dans le magasin source (${fromStock?.quantity || 0} dispo)`);
-    }
-
+    // Transaction : le check de stock est DANS la transaction via updateMany conditionnel
     return this.prisma.$transaction(async (tx) => {
+      const item = await tx.stockItem.findFirst({
+        where: { id: data.itemId, organizationId: orgId },
+      });
+      if (!item) throw new NotFoundException('Article introuvable');
+
+      // UPDATE atomique : décrémente si stock suffisant dans le magasin source
+      const result = await tx.stockItemStock.updateMany({
+        where: {
+          itemId: item.id,
+          warehouseId: data.fromWarehouseId,
+          quantity: { gte: quantity },
+        },
+        data: { quantity: { decrement: quantity } },
+      });
+      if (result.count === 0) {
+        throw new BadRequestException(
+          `Stock insuffisant dans le magasin source (demandé: ${quantity})`,
+        );
+      }
+
       // Sortie source
       const outMvt = await tx.stockMovement.create({
         data: {
@@ -523,12 +532,8 @@ export class StockService {
           organizationId: orgId,
         },
       });
-      await tx.stockItemStock.update({
-        where: { itemId_warehouseId: { itemId: item.id, warehouseId: data.fromWarehouseId } },
-        data: { quantity: { decrement: quantity } },
-      });
 
-      // Entree destination
+      // Entrée destination
       const inMvt = await tx.stockMovement.create({
         data: {
           itemId: item.id,
@@ -541,8 +546,11 @@ export class StockService {
           organizationId: orgId,
         },
       });
+
       await tx.stockItemStock.upsert({
-        where: { itemId_warehouseId: { itemId: item.id, warehouseId: data.toWarehouseId } },
+        where: {
+          itemId_warehouseId: { itemId: item.id, warehouseId: data.toWarehouseId },
+        },
         update: { quantity: { increment: quantity } },
         create: { itemId: item.id, warehouseId: data.toWarehouseId, quantity },
       });
@@ -551,9 +559,6 @@ export class StockService {
     });
   }
 
-  // ═══════════════════════════════════════════════════════
-  //  RECIPES
-  // ═══════════════════════════════════════════════════════
   async findAllRecipes(user: any) {
     const orgId = await this.getOrganizationId(user);
     const recipes = await this.prisma.recipe.findMany({

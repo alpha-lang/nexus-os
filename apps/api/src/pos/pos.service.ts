@@ -11,6 +11,10 @@ export class PosService {
    * Déstocke automatiquement les ingrédients des recettes liées à un MenuItem.
    * Utilise le magasin CUISINE en priorité.
    */
+  /**
+   * Déstocke les ingrédients des recettes liées à un MenuItem.
+   * TOUT est fait dans UNE SEULE transaction (avant : N transactions).
+   */
   private async consumeStockForMenuItems(
     orgId: string,
     userId: string | null,
@@ -26,68 +30,64 @@ export class PosService {
       (await this.prisma.stockWarehouse.findFirst({ where: { organizationId: orgId } }));
     if (!warehouse) return;
 
-    for (const it of items) {
-      // 1. Recette liée au MenuItem
-      const recipe = await this.prisma.recipe.findFirst({
-        where: { organizationId: orgId, menuItemId: it.menuItemId },
-        include: { ingredients: true },
-      });
+    // Charge toutes les recettes en une fois
+    const menuItemIds = items.map((i) => i.menuItemId);
+    const recipes = await this.prisma.recipe.findMany({
+      where: { organizationId: orgId, menuItemId: { in: menuItemIds } },
+      include: { ingredients: true },
+    });
+    const recipeByMenuItem = new Map(recipes.map((r) => [r.menuItemId!, r]));
 
+    // Prépare la liste finale de mouvements (agrégée par article)
+    // Ex : 2 plats utilisant 0.15kg de tomate chacun → 1 mouvement de -0.3kg
+    const consumption = new Map<string, number>();
+    for (const it of items) {
+      const recipe = recipeByMenuItem.get(it.menuItemId);
       if (recipe && recipe.ingredients.length > 0) {
-        // a. Decompter chaque ingredient
+        const factor = (recipe.yield > 0 ? 1 / recipe.yield : 1) * it.quantity;
         for (const ing of recipe.ingredients) {
-          const qty = ing.quantity * it.quantity * (recipe.yield > 0 ? 1 / recipe.yield : 1);
-          await this.adjustStock(orgId, warehouse.id, ing.stockItemId, -qty, 'CONSUMPTION', orderId, userId);
-        }
-      } else {
-        // 2. Fallback : si le MenuItem est un StockItem revendable direct
-        const stockItem = await this.prisma.stockItem.findFirst({
-          where: { organizationId: orgId, catalogItemId: null, name: { equals: (await this.prisma.menuItem.findUnique({ where: { id: it.menuItemId } }))?.name || '' } },
-        });
-        if (stockItem && stockItem.isSellable) {
-          await this.adjustStock(orgId, warehouse.id, stockItem.id, -it.quantity, 'CONSUMPTION', orderId, userId);
+          consumption.set(
+            ing.stockItemId,
+            (consumption.get(ing.stockItemId) || 0) + ing.quantity * factor,
+          );
         }
       }
     }
-  }
 
-  private async adjustStock(
-    orgId: string,
-    warehouseId: string,
-    itemId: string,
-    delta: number,
-    type: string,
-    reference: string,
-    userId: string | null,
-  ) {
-    try {
-      await this.prisma.$transaction(async (tx) => {
+    if (consumption.size === 0) return;
+
+    // Une seule transaction pour TOUS les articles
+    await this.prisma.$transaction(async (tx) => {
+      for (const [itemId, qtyRaw] of consumption.entries()) {
+        const qty = -Math.abs(qtyRaw);
+
         await tx.stockMovement.create({
           data: {
             itemId,
-            warehouseId,
-            type,
-            quantity: delta,
+            warehouseId: warehouse.id,
+            type: 'CONSUMPTION',
+            quantity: qty,
             reason: 'Auto-destockage POS',
-            reference,
+            reference: orderId,
             userId,
             organizationId: orgId,
           },
         });
+
         await tx.stockItem.update({
           where: { id: itemId },
-          data: { currentStock: { increment: delta } },
+          data: { currentStock: { increment: qty } },
         });
+
         await tx.stockItemStock.upsert({
-          where: { itemId_warehouseId: { itemId, warehouseId } },
-          update: { quantity: { increment: delta } },
-          create: { itemId, warehouseId, quantity: delta },
+          where: { itemId_warehouseId: { itemId, warehouseId: warehouse.id } },
+          update: { quantity: { increment: qty } },
+          create: { itemId, warehouseId: warehouse.id, quantity: qty },
         });
-      });
-    } catch (e) {
-      this.logger.error('[adjustStock] Erreur', e instanceof Error ? e.stack : String(e));
-    }
+      }
+    });
   }
+
 
   private async getOrganizationId(user: any): Promise<string> {
     if (user.organizationId) return user.organizationId;
