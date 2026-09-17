@@ -187,14 +187,22 @@ export class StockService {
       value: Math.round(s.quantity * s.item.costPrice),
       isIngredient: s.item.isIngredient,
       isSellable: s.item.isSellable,
-      status: s.quantity <= 0 ? 'OUT'
-        : s.quantity <= s.item.minStock ? 'CRITICAL'
-        : s.item.maxStock && s.quantity > s.item.maxStock ? 'OVER'
-        : 'OK',
+      status:
+        s.quantity <= 0
+          ? (s.item.minStock > 0 ? 'OUT' : 'NONE')  // NONE = pas attendu ici
+          : s.quantity <= s.item.minStock
+          ? 'CRITICAL'
+          : s.item.maxStock && s.quantity > s.item.maxStock
+          ? 'OVER'
+          : 'OK',
     }));
 
     const totalValue = items.reduce((s, i) => s + i.value, 0);
-    const alertsCount = items.filter((i) => i.status === 'CRITICAL' || i.status === 'OUT').length;
+    // ⚠️ Une "alerte" = un article qui EXISTE dans ce magasin mais est sous le seuil.
+    //    Un article à 0 n'est PAS une alerte — c'est juste qu'il n'est pas stocké ici.
+    const alertsCount = items.filter(
+      (i) => i.quantity > 0 && i.quantity <= i.minStock,
+    ).length;
 
     // Mouvements récents
     const recentMovements = await this.prisma.stockMovement.findMany({
