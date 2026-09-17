@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../../../lib/api';
 import { usePagination } from '../../../lib/usePagination';
 import { Pagination } from '../../../lib/Pagination';
+import { Modal, Button, FormField, Input, Select, Textarea, SearchableSelect } from '../../../components/ui';
 
 const CATEGORY_META: Record<string, { label: string; color: string; bg: string }> = {
   ALIMENTAIRE: { label: 'Alimentaire', color: '#dc2626', bg: 'bg-red-50' },
@@ -52,6 +53,37 @@ export default function StockPage() {
   const [showMovementModal, setShowMovementModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
+  // ─── Formulaire article ───
+  const [showItemModal, setShowItemModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [savingItem, setSavingItem] = useState(false);
+  const [itemError, setItemError] = useState<string | null>(null);
+  const [fName, setFName] = useState('');
+  const [fSku, setFSku] = useState('');
+  const [fCategory, setFCategory] = useState('ALIMENTAIRE');
+  const [fUnit, setFUnit] = useState('piece');
+  const [fCurrentStock, setFCurrentStock] = useState('0');
+  const [fMinStock, setFMinStock] = useState('0');
+  const [fMaxStock, setFMaxStock] = useState('');
+  const [fCostPrice, setFCostPrice] = useState('0');
+  const [fSalePrice, setFSalePrice] = useState('');
+  const [fSupplierId, setFSupplierId] = useState('');
+  const [fIsIngredient, setFIsIngredient] = useState(false);
+  const [fIsSellable, setFIsSellable] = useState(false);
+  const [fWarehouseId, setFWarehouseId] = useState('');
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+
+  // ─── Modal magasins ───
+  const [showWarehouseModal, setShowWarehouseModal] = useState(false);
+  const [editingWarehouse, setEditingWarehouse] = useState<any>(null);
+  const [savingWarehouse, setSavingWarehouse] = useState(false);
+  const [whError, setWhError] = useState<string | null>(null);
+  const [wName, setWName] = useState('');
+  const [wCode, setWCode] = useState('');
+  const [wLocation, setWLocation] = useState('');
+  const [wIsDefault, setWIsDefault] = useState(false);
+
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
@@ -68,6 +100,207 @@ export default function StockPage() {
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
+  }
+
+  // ─── Charge les fournisseurs (partners SUPPLIER) ───
+  async function loadSuppliers() {
+    const res = await apiFetch('/api/partners?type=SUPPLIER', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data.items || []);
+    setSuppliers(list);
+  }
+
+  // ─── Charge les magasins ───
+  async function loadWarehouses() {
+    const res = await apiFetch('/api/stock/warehouses', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data.items || []);
+    setWarehouses(list);
+    // Auto-sélectionne le magasin par défaut si rien de sélectionné
+    if (!fWarehouseId && list.length > 0) {
+      const def = list.find((w: any) => w.isDefault) || list[0];
+      setFWarehouseId(def.id);
+    }
+    return list;
+  }
+
+  // ─── CRUD Magasins ───
+  function openWarehouseModal(w?: any) {
+    setWhError(null);
+    if (w) {
+      setEditingWarehouse(w);
+      setWName(w.name || '');
+      setWCode(w.code || '');
+      setWLocation(w.location || '');
+      setWIsDefault(!!w.isDefault);
+    } else {
+      setEditingWarehouse(null);
+      setWName(''); setWCode(''); setWLocation(''); setWIsDefault(false);
+    }
+    setShowWarehouseModal(true);
+  }
+
+  async function saveWarehouse(e: React.FormEvent) {
+    e.preventDefault();
+    setWhError(null);
+    setSavingWarehouse(true);
+    try {
+      const method = editingWarehouse ? 'PATCH' : 'POST';
+      const url = editingWarehouse
+        ? `/api/stock/warehouses/${editingWarehouse.id}`
+        : '/api/stock/warehouses';
+
+      const res = await apiFetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: wName.trim(),
+          code: wCode.trim().toUpperCase(),
+          location: wLocation.trim() || null,
+          isDefault: wIsDefault,
+        }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Erreur');
+      }
+      showToast(editingWarehouse ? 'Magasin mis à jour' : 'Magasin créé');
+      setShowWarehouseModal(false);
+      setEditingWarehouse(null);
+      await loadWarehouses();
+      await load();
+    } catch (err: any) {
+      setWhError(err.message || 'Erreur');
+    } finally {
+      setSavingWarehouse(false);
+    }
+  }
+
+  async function deleteWarehouse(id: string, name: string) {
+    if (!confirm(`Supprimer le magasin "${name}" ?`)) return;
+    const res = await apiFetch(`/api/stock/warehouses/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      showToast('Magasin supprimé');
+      await loadWarehouses();
+    } else {
+      const d = await res.json();
+      alert(d.message || 'Erreur');
+    }
+  }
+
+  // ─── Créer un magasin par défaut si aucun ───
+  async function ensureWarehouse() {
+    const res = await apiFetch('/api/stock/warehouses', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data.items || []);
+
+    // Si un magasin existe déjà (peu importe lequel), on ne crée rien.
+    // L'utilisateur choisira explicitement le magasin dans le picker.
+    if (list.length === 0) {
+      await apiFetch('/api/stock/warehouses', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Magasin principal', code: 'MAIN', isDefault: true }),
+      });
+      showToast('Magasin principal créé');
+    }
+  }
+
+  function openItemModal(item?: any) {
+    setItemError(null);
+    loadSuppliers().catch(console.error);
+    loadWarehouses().catch(console.error);
+    if (item) {
+      setEditingItem(item);
+      setFName(item.name || '');
+      setFSku(item.sku || '');
+      setFCategory(item.category || 'ALIMENTAIRE');
+      setFUnit(item.unit || 'piece');
+      setFCurrentStock(String(item.currentStock ?? 0));
+      setFMinStock(String(item.minStock ?? 0));
+      setFMaxStock(item.maxStock != null ? String(item.maxStock) : '');
+      setFCostPrice(String(item.costPrice ?? 0));
+      setFSalePrice(item.salePrice != null ? String(item.salePrice) : '');
+      setFSupplierId(item.supplierId || '');
+      setFIsIngredient(!!item.isIngredient);
+      setFIsSellable(!!item.isSellable);
+      // Trouve le 1er magasin qui a du stock (via warehouseStock)
+      if (item.warehouseStock && item.warehouseStock.length > 0) {
+        const withStock = item.warehouseStock.find((ws: any) => ws.quantity > 0);
+        if (withStock) setFWarehouseId(withStock.warehouseId);
+      }
+    } else {
+      setEditingItem(null);
+      setFName(''); setFSku(''); setFCategory('ALIMENTAIRE'); setFUnit('piece');
+      setFCurrentStock('0'); setFMinStock('0'); setFMaxStock('');
+      setFCostPrice('0'); setFSalePrice('');
+      setFSupplierId(''); setFIsIngredient(false); setFIsSellable(false);
+      // Magasin par défaut si dispo
+      if (warehouses.length > 0) {
+        const def = warehouses.find((w: any) => w.isDefault) || warehouses[0];
+        setFWarehouseId(def.id);
+      }
+    }
+    setShowItemModal(true);
+  }
+
+  async function saveItem(e: React.FormEvent) {
+    e.preventDefault();
+    setItemError(null);
+    setSavingItem(true);
+
+    try {
+      if (!editingItem) await ensureWarehouse();
+
+      const payload = {
+        name: fName.trim(),
+        sku: fSku.trim() || null,
+        category: fCategory,
+        unit: fUnit,
+        currentStock: parseFloat(fCurrentStock) || 0,
+        minStock: parseFloat(fMinStock) || 0,
+        maxStock: fMaxStock !== '' ? parseFloat(fMaxStock) : null,
+        costPrice: parseFloat(fCostPrice) || 0,
+        salePrice: fSalePrice !== '' ? parseFloat(fSalePrice) : null,
+        supplierId: fSupplierId || null,
+        isIngredient: fIsIngredient,
+        isSellable: fIsSellable,
+        warehouseId: fWarehouseId || null,
+      };
+
+      const method = editingItem ? 'PATCH' : 'POST';
+      const url = editingItem ? `/api/stock/items/${editingItem.id}` : '/api/stock/items';
+
+      const res = await apiFetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Erreur');
+      }
+
+      showToast(editingItem ? 'Article mis à jour' : 'Article créé');
+      setShowItemModal(false);
+      setEditingItem(null);
+      await load();
+    } catch (err: any) {
+      setItemError(err.message || 'Erreur');
+    } finally {
+      setSavingItem(false);
+    }
   }
 
   // Filter + sort
@@ -193,12 +426,41 @@ export default function StockPage() {
       })()}
 
       {/* Header */}
-      <div>
-        <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Inventaire</p>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Stock</h1>
-        <p className="text-slate-500 mt-1">
-          Gerez vos articles, fournisseurs et mouvements de stock
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Inventaire</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Stock</h1>
+          <p className="text-slate-500 mt-1">
+            Gerez vos articles, fournisseurs et mouvements de stock
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0 flex-wrap">
+          <button
+            onClick={() => openWarehouseModal()}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            Magasins
+          </button>
+          <a
+            href="/dashboard/stock/suppliers"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1" />
+            </svg>
+            Fournisseurs
+          </a>
+          <Button
+            onClick={() => openItemModal()}
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>}
+          >
+            Ajouter un article
+          </Button>
+        </div>
       </div>
 
       {/* KPI */}
@@ -358,9 +620,20 @@ export default function StockPage() {
                           <div className="text-[10px] text-slate-400 tabular-nums">{humanSize(Math.round(item.costPrice))} / {item.unit}</div>
                         </td>
                         <td className="p-3 text-center">
-                          <span className={'inline-flex items-center text-[9px] font-black tracking-widest px-2 py-1 rounded-md ' + status.bg + ' ' + status.text}>
-                            {status.label}
-                          </span>
+                          <div className="flex items-center justify-center gap-1">
+                            <span className={'inline-flex items-center text-[9px] font-black tracking-widest px-2 py-1 rounded-md ' + status.bg + ' ' + status.text}>
+                              {status.label}
+                            </span>
+                            <button
+                              onClick={() => openItemModal(item)}
+                              className="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition"
+                              title="Modifier"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                              </svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -381,6 +654,229 @@ export default function StockPage() {
           />
         </>
       )}
+      {/* ═══════════ MODALE MAGASINS ═══════════ */}
+      <Modal
+        open={showWarehouseModal}
+        onClose={() => { setShowWarehouseModal(false); setEditingWarehouse(null); }}
+        title={editingWarehouse ? 'Modifier le magasin' : 'Nouveau magasin'}
+        subtitle={editingWarehouse ? editingWarehouse.name : 'Créez un emplacement de stockage'}
+        icon={<span className="text-2xl">🏬</span>}
+        size="lg"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setShowWarehouseModal(false); setEditingWarehouse(null); }}>Fermer</Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          {whError && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{whError}</div>}
+
+          {/* Liste des magasins existants */}
+          {warehouses.length > 0 && (
+            <div>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
+                Magasins actuels ({warehouses.length})
+              </p>
+              <div className="space-y-1.5">
+                {warehouses.map((w: any) => (
+                  <div key={w.id} className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="w-8 h-8 rounded-lg bg-slate-700 text-white flex items-center justify-center text-xs font-black shrink-0">
+                      {w.code.slice(0, 2)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm truncate">{w.name}</span>
+                        {w.isDefault && (
+                          <span className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                            PAR DÉFAUT
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        {w.code}{w.location ? ` · ${w.location}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => openWarehouseModal(w)}
+                      className="w-7 h-7 rounded-lg hover:bg-white text-slate-400 hover:text-blue-600 flex items-center justify-center transition"
+                      title="Modifier"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    </button>
+                    {!w.isDefault && (
+                      <button
+                        onClick={() => deleteWarehouse(w.id, w.name)}
+                        className="w-7 h-7 rounded-lg hover:bg-white text-slate-400 hover:text-red-600 flex items-center justify-center transition"
+                        title="Supprimer"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Form create/edit */}
+          <form onSubmit={saveWarehouse} className="border-t border-slate-200 pt-5">
+            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">
+              {editingWarehouse ? `Modifier "${editingWarehouse.name}"` : 'Nouveau magasin'}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Nom" required>
+                <Input type="text" value={wName} onChange={(e) => setWName(e.target.value)} placeholder="Cuisine" required />
+              </FormField>
+              <FormField label="Code" required hint="Majuscules, unique">
+                <Input type="text" value={wCode} onChange={(e) => setWCode(e.target.value.toUpperCase())} placeholder="CUISINE" required />
+              </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <FormField label="Emplacement">
+                <Input type="text" value={wLocation} onChange={(e) => setWLocation(e.target.value)} placeholder="RDC, Sous-sol…" />
+              </FormField>
+              <FormField label="Par défaut">
+                <label className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+                  <input type="checkbox" checked={wIsDefault} onChange={(e) => setWIsDefault(e.target.checked)} className="w-4 h-4 rounded text-teal-600" />
+                  <span className="text-sm font-medium text-slate-700">Définir par défaut</span>
+                </label>
+              </FormField>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button
+                type="submit"
+                disabled={savingWarehouse}
+                className="px-5 py-2.5 bg-linear-to-r from-blue-600 to-teal-500 text-white rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50"
+              >
+                {savingWarehouse ? 'Enregistrement…' : editingWarehouse ? 'Enregistrer' : 'Créer le magasin'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+
+      {/* ═══════════ MODALE ARTICLE ═══════════ */}
+      <Modal
+        open={showItemModal}
+        onClose={() => { setShowItemModal(false); setEditingItem(null); }}
+        title={editingItem ? 'Modifier l\'article' : 'Nouvel article'}
+        subtitle={editingItem ? editingItem.name : 'Créer un article de stock'}
+        icon={<span className="text-2xl">📦</span>}
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setShowItemModal(false); setEditingItem(null); }}>Annuler</Button>
+            <button
+              type="submit"
+              form="item-form"
+              disabled={savingItem}
+              className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50"
+            >
+              {savingItem ? 'Enregistrement...' : editingItem ? 'Enregistrer' : 'Créer'}
+            </button>
+          </div>
+        }
+      >
+        <form id="item-form" onSubmit={saveItem} className="space-y-5">
+          {itemError && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{itemError}</div>}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Nom de l'article" required>
+              <Input type="text" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="Farine T55" required />
+            </FormField>
+            <FormField label="SKU (référence)">
+              <Input type="text" value={fSku} onChange={(e) => setFSku(e.target.value)} placeholder="FAR-T55" />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Catégorie">
+              <Select value={fCategory} onChange={(e) => setFCategory(e.target.value)}>
+                <option value="ALIMENTAIRE">Alimentaire</option>
+                <option value="BOISSON">Boisson</option>
+                <option value="ENTRETIEN">Entretien</option>
+                <option value="LINGE">Linge</option>
+                <option value="AUTRE">Autre</option>
+              </Select>
+            </FormField>
+            <FormField label="Unité">
+              <Select value={fUnit} onChange={(e) => setFUnit(e.target.value)}>
+                <option value="piece">Pièce</option>
+                <option value="kg">Kilogramme</option>
+                <option value="g">Gramme</option>
+                <option value="L">Litre</option>
+                <option value="cl">Centilitre</option>
+                <option value="m">Mètre</option>
+              </Select>
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <FormField label="Stock actuel">
+              <Input type="number" step="0.01" value={fCurrentStock} onChange={(e) => setFCurrentStock(e.target.value)} />
+            </FormField>
+            <FormField label="Stock min">
+              <Input type="number" step="0.01" value={fMinStock} onChange={(e) => setFMinStock(e.target.value)} />
+            </FormField>
+            <FormField label="Stock max">
+              <Input type="number" step="0.01" value={fMaxStock} onChange={(e) => setFMaxStock(e.target.value)} placeholder="Optionnel" />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Prix d'achat (Ar)">
+              <Input type="number" step="0.01" value={fCostPrice} onChange={(e) => setFCostPrice(e.target.value)} />
+            </FormField>
+            <FormField label="Prix de vente (Ar)">
+              <Input type="number" step="0.01" value={fSalePrice} onChange={(e) => setFSalePrice(e.target.value)} placeholder="Optionnel" />
+            </FormField>
+          </div>
+
+          <FormField label="Magasin de stockage" required hint="Où le stock initial est rangé">
+            {warehouses.length === 0 ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+                Aucun magasin. Un magasin <strong>par défaut</strong> sera créé automatiquement.
+              </div>
+            ) : (
+              <Select value={fWarehouseId} onChange={(e) => setFWarehouseId(e.target.value)}>
+                {warehouses.map((w: any) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} {w.isDefault ? '(par défaut)' : ''} — {w.code}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
+
+          <FormField label="Fournisseur (optionnel)">
+            <SearchableSelect
+              value={fSupplierId}
+              onChange={setFSupplierId}
+              options={suppliers.map((s: any) => ({
+                value: s.id,
+                label: s.name,
+                sub: [s.contactName, s.phone, s.city].filter(Boolean).join(' · '),
+              }))}
+              placeholder="Rechercher un fournisseur…"
+              emptyLabel="— Aucun fournisseur —"
+            />
+          </FormField>
+
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={fIsIngredient} onChange={(e) => setFIsIngredient(e.target.checked)} className="w-4 h-4 rounded text-teal-600" />
+              <span className="text-sm font-medium text-slate-700">Utilisé en cuisine (ingrédient)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={fIsSellable} onChange={(e) => setFIsSellable(e.target.checked)} className="w-4 h-4 rounded text-teal-600" />
+              <span className="text-sm font-medium text-slate-700">Revendable directement</span>
+            </label>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

@@ -14,7 +14,20 @@ export class StockController {
   dashboard(@CurrentUser() u: any) { return this.service.getDashboard(u); }
 
   // WAREHOUSES
-  @Get('warehouses') warehouses(@CurrentUser() u: any) { return this.service.findAllWarehouses(u); }
+  @Get('warehouses')
+  warehouses(@CurrentUser() u: any) {
+    return this.service.findAllWarehouses(u);
+  }
+
+  @Get('warehouses/stats')
+  warehouseStats(@CurrentUser() u: any) {
+    return this.service.getWarehouseStats(u);
+  }
+
+  @Get('warehouses/:id')
+  warehouse(@CurrentUser() u: any, @Param('id') id: string) {
+    return this.service.findOneWarehouse(u, id);
+  }
   @Post('warehouses') createWarehouse(@CurrentUser() u: any, @Body() b: any) { return this.service.createWarehouse(u, b); }
   @Patch('warehouses/:id') updateWarehouse(@CurrentUser() u: any, @Param('id') id: string, @Body() b: any) { return this.service.updateWarehouse(u, id, b); }
   @Delete('warehouses/:id') removeWarehouse(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeWarehouse(u, id); }

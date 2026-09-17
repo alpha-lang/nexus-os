@@ -70,6 +70,162 @@ export class StockService {
     });
   }
 
+  /**
+   * Vue agrégée de tous les magasins : valeur, articles, alertes.
+   */
+  async getWarehouseStats(user: any) {
+    const orgId = await this.getOrganizationId(user);
+
+    const warehouses = await this.prisma.stockWarehouse.findMany({
+      where: { organizationId: orgId },
+      include: {
+        _count: { select: { stocks: true, movements: true } },
+      },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+    });
+
+    const since30d = new Date(Date.now() - 30 * 86400000);
+
+    const results = await Promise.all(
+      warehouses.map(async (w) => {
+        const stocks = await this.prisma.stockItemStock.findMany({
+          where: { warehouseId: w.id, quantity: { gt: 0 } },
+          include: {
+            item: {
+              select: { id: true, name: true, sku: true, unit: true, costPrice: true, minStock: true, category: true },
+            },
+          },
+        });
+
+        const totalValue = stocks.reduce((s, st) => s + st.quantity * (st.item.costPrice || 0), 0);
+        const totalArticles = stocks.length;
+        const totalQty = stocks.reduce((s, st) => s + st.quantity, 0);
+
+        // Alertes : stock magasin <= minStock global de l'article
+        const alerts = stocks.filter((st) => st.quantity > 0 && st.quantity <= st.item.minStock);
+
+        // Mouvements 30j pour ce magasin
+        const mvt30d = await this.prisma.stockMovement.count({
+          where: { warehouseId: w.id, createdAt: { gte: since30d } },
+        });
+
+        return {
+          id: w.id,
+          name: w.name,
+          code: w.code,
+          location: w.location,
+          isDefault: w.isDefault,
+          totalValue: Math.round(totalValue),
+          totalArticles,
+          totalQty: Math.round(totalQty * 100) / 100,
+          alertsCount: alerts.length,
+          movements30d: mvt30d,
+          topAlerts: alerts.slice(0, 3).map((a) => ({
+            id: a.item.id,
+            name: a.item.name,
+            quantity: a.quantity,
+            minStock: a.item.minStock,
+            unit: a.item.unit,
+          })),
+        };
+      }),
+    );
+
+    // Totaux globaux
+    const grandTotalValue = results.reduce((s, r) => s + r.totalValue, 0);
+    const grandTotalArticles = results.reduce((s, r) => s + r.totalArticles, 0);
+    const grandTotalAlerts = results.reduce((s, r) => s + r.alertsCount, 0);
+
+    return {
+      summary: {
+        totalWarehouses: results.length,
+        totalValue: grandTotalValue,
+        totalArticles: grandTotalArticles,
+        totalAlerts: grandTotalAlerts,
+      },
+      warehouses: results,
+    };
+  }
+
+  /**
+   * Détail d'un magasin : tous ses articles avec quantités + valeur.
+   */
+  async findOneWarehouse(user: any, id: string) {
+    const orgId = await this.getOrganizationId(user);
+
+    const warehouse = await this.prisma.stockWarehouse.findFirst({
+      where: { id, organizationId: orgId },
+    });
+    if (!warehouse) throw new NotFoundException('Magasin introuvable');
+
+    const stocks = await this.prisma.stockItemStock.findMany({
+      where: { warehouseId: id },
+      include: {
+        item: {
+          select: {
+            id: true, name: true, sku: true, unit: true, category: true,
+            costPrice: true, salePrice: true, minStock: true, maxStock: true,
+            currentStock: true, isIngredient: true, isSellable: true,
+          },
+        },
+      },
+      orderBy: { item: { name: 'asc' } },
+    });
+
+    const items = stocks.map((s) => ({
+      id: s.item.id,
+      name: s.item.name,
+      sku: s.item.sku,
+      unit: s.item.unit,
+      category: s.item.category,
+      costPrice: s.item.costPrice,
+      salePrice: s.item.salePrice,
+      minStock: s.item.minStock,
+      maxStock: s.item.maxStock,
+      currentStockGlobal: s.item.currentStock,
+      quantity: s.quantity,
+      value: Math.round(s.quantity * s.item.costPrice),
+      isIngredient: s.item.isIngredient,
+      isSellable: s.item.isSellable,
+      status: s.quantity <= 0 ? 'OUT'
+        : s.quantity <= s.item.minStock ? 'CRITICAL'
+        : s.item.maxStock && s.quantity > s.item.maxStock ? 'OVER'
+        : 'OK',
+    }));
+
+    const totalValue = items.reduce((s, i) => s + i.value, 0);
+    const alertsCount = items.filter((i) => i.status === 'CRITICAL' || i.status === 'OUT').length;
+
+    // Mouvements récents
+    const recentMovements = await this.prisma.stockMovement.findMany({
+      where: { warehouseId: id },
+      include: {
+        item: { select: { id: true, name: true, unit: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    return {
+      warehouse: {
+        id: warehouse.id,
+        name: warehouse.name,
+        code: warehouse.code,
+        location: warehouse.location,
+        isDefault: warehouse.isDefault,
+      },
+      summary: {
+        totalArticles: items.filter((i) => i.quantity > 0).length,
+        totalQty: Math.round(items.reduce((s, i) => s + i.quantity, 0) * 100) / 100,
+        totalValue: Math.round(totalValue),
+        alertsCount,
+      },
+      items,
+      recentMovements,
+    };
+  }
+
   async createWarehouse(user: any, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Acces refuse');
     const orgId = await this.getOrganizationId(user);
@@ -264,9 +420,25 @@ export class StockService {
       if (existing) throw new BadRequestException('Ce SKU existe deja');
     }
 
-    const defaultWarehouse = await this.prisma.stockWarehouse.findFirst({
+    // Si l'utilisateur a explicitement choisi un magasin, on peut le rendre default si aucun n'existe
+    const existingDefault = await this.prisma.stockWarehouse.findFirst({
       where: { organizationId: orgId, isDefault: true },
     });
+
+    // Magasin de stockage choisi par l'utilisateur, sinon celui par défaut
+    const targetWarehouse = data.warehouseId
+      ? await this.prisma.stockWarehouse.findFirst({
+          where: { id: data.warehouseId, organizationId: orgId },
+        })
+      : await this.prisma.stockWarehouse.findFirst({
+          where: { organizationId: orgId, isDefault: true },
+        });
+
+    if (!targetWarehouse) {
+      throw new BadRequestException(
+        'Aucun magasin disponible. Créez un magasin avant d\'ajouter un article.',
+      );
+    }
 
     const item = await this.prisma.stockItem.create({
       data: {
@@ -288,23 +460,25 @@ export class StockService {
     });
 
     // Créer StockItemStock pour chaque magasin
-    const warehouses = await this.prisma.stockWarehouse.findMany({ where: { organizationId: orgId } });
+    const warehouses = await this.prisma.stockWarehouse.findMany({
+      where: { organizationId: orgId },
+    });
     for (const w of warehouses) {
       await this.prisma.stockItemStock.create({
         data: {
           itemId: item.id,
           warehouseId: w.id,
-          quantity: w.id === defaultWarehouse?.id ? item.currentStock : 0,
+          quantity: w.id === targetWarehouse.id ? item.currentStock : 0,
         },
       });
     }
 
     // Mouvement initial si stock > 0
-    if (item.currentStock > 0 && defaultWarehouse) {
+    if (item.currentStock > 0) {
       await this.prisma.stockMovement.create({
         data: {
           itemId: item.id,
-          warehouseId: defaultWarehouse.id,
+          warehouseId: targetWarehouse.id,
           type: 'RECEPTION',
           quantity: item.currentStock,
           unitCost: item.costPrice,

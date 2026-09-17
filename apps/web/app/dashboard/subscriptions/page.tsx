@@ -617,7 +617,7 @@ export default function SubscriptionsPage() {
               <p className="text-center text-slate-400 py-8 text-sm">Aucun module au catalogue</p>
             ) : (
               allModules.map((m) => {
-                const current = manageModal.activeModules?.find((am) => am.moduleId === m.id);
+                const current = manageModal.activeModules?.find((am: any) => am.moduleId === m.id);
                 const isActive = current?.isActive === true;
                 const hasLink = !!current;
 
