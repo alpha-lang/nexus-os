@@ -1,3 +1,7 @@
+# ═══════════════════════════════════════
+#  NEXUS OS — Racine monorepo
+# ═══════════════════════════════════════
+
 # Dependencies
 node_modules/
 .pnpm-store/
@@ -24,38 +28,34 @@ pnpm-debug.log*
 
 # OS
 .DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
 .idea/
+*.swp
 
 # Backups / dumps
 *.sql
+*.dump
 nexus-os-source-dump.txt
-*.bak
-*.bak2
-*.bak3
-*.bak4
-*.bak5
-*.bak-*
+nexus-os-source-complet.txt
 
-# Scripts one-shot de dev
-apps/api/patch-*.js
-apps/api/fix-*.js
-apps/api/check-*.js
-apps/api/insert-*.js
-apps/api/link-*.js
-apps/api/rename-*.js
-apps/api/backfill.js
-apps/api/count.js
-apps/api/set-*.js
-apps/api/exit-build.js
-apps/web/patch-*.js
-apps/web/fix-*.js
-apps/web/add-*.js
-apps/web/remove-*.js
-apps/web/move-*.js
-apps/web/insert-*.js
-apps/web/compact-*.js
-apps/web/print*.js
-apps/web/*.txt
+# Prisma backups
+prisma/*.bak*
+prisma/migrations/**/*.bak*
+**/*.bak
+**/*.bak2
+**/*.bak3
+**/*.bak4
+**/*.bak5
+**/*.bak-*
+
+# Fichiers temporaires
+*.tmp
+*.temp
+*.cache
+
+# Coverage
+coverage/
+.nyc_output/

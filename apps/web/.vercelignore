@@ -1,0 +1,23 @@
+# ═══ Node & build artifacts ═══
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# ═══ Env ═══
+.env
+.env.*
+!.env.example
+
+# ═══ Logs ═══
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# ═══ IDE ═══
+.vscode/
+.idea/
+
+# ═══ Fichiers de dev ═══
+AGENTS.md
+CLAUDE.md

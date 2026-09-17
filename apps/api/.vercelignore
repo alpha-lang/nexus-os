@@ -1,0 +1,35 @@
+# ═══ Node & build artifacts ═══
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+
+# ═══ Env ═══
+.env
+.env.*
+!.env.example
+
+# ═══ Tests ═══
+test/
+*.spec.ts
+*.e2e-spec.ts
+coverage/
+jest.config.*
+
+# ═══ Prisma backups / dumps ═══
+prisma/*.sql
+prisma/*.bak*
+prisma/migrations/**/*.bak*
+
+# ═══ Logs ═══
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# ═══ IDE ═══
+.vscode/
+.idea/
+
+# ═══ Fichiers de dev ═══
+*.md
+!README.md

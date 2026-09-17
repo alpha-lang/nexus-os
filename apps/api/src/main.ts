@@ -13,7 +13,37 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
       logger: ['error', 'warn', 'log'],
     });
-    app.enableCors({ origin: true, credentials: true });
+
+    // ═══ CORS : liste blanche d'origines ═══
+    const allowedOrigins = [
+      'https://nexus-plateforme.vercel.app',
+      'https://nexus-os-back.vercel.app',
+      'https://nexus-os-web.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ];
+
+    app.enableCors({
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Autorise requêtes sans origin (curl, Postman, serverless-to-serverless)
+        if (!origin) return callback(null, true);
+        // Origine explicitement autorisée
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        // Previews Vercel du team (branches/PR)
+        if (
+          /^https:\/\/[a-z0-9-]+-elikantos-projects\.vercel\.app$/.test(origin) ||
+          /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin) && origin.includes('nexus')
+        ) {
+          return callback(null, true);
+        }
+        callback(new Error(`Origine CORS non autorisée : ${origin}`));
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      maxAge: 86400,
+    });
+
     await app.init();
   })();
 
