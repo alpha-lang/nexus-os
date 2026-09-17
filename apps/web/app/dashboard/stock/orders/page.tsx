@@ -501,14 +501,41 @@ export default function OrdersPage() {
               <p className="text-2xl font-black text-slate-900 tabular-nums">{showReceive.totalAmount.toLocaleString('fr-FR')} Ar</p>
             </div>
 
-            <FormField label="Magasin de reception">
-              <select
-                id="receive-warehouse"
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
-                defaultValue={warehouses.find((w: any) => w.isDefault)?.id || warehouses[0]?.id || ''}
-              >
-                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
+            <FormField label="Magasin de reception" required hint="Où sera rangée la marchandise livrée">
+              <div className="space-y-2" id="receive-warehouse-group">
+                {warehouses.map((w: any) => (
+                  <label
+                    key={w.id}
+                    className="flex items-center gap-3 p-3 bg-white border-2 border-slate-200 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50 transition has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 has-[:checked]:shadow-sm"
+                  >
+                    <input
+                      type="radio"
+                      name="receive-warehouse"
+                      value={w.id}
+                      defaultChecked={w.isDefault}
+                      className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">{w.name}</span>
+                        {w.isDefault && (
+                          <span className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                            PAR DÉFAUT
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        {w.code}{w.location ? ` · ${w.location}` : ''}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+                {warehouses.length === 0 && (
+                  <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    Aucun magasin. Créez-en un avant de réceptionner.
+                  </p>
+                )}
+              </div>
             </FormField>
 
             <div className="flex gap-2 mt-6">
@@ -517,7 +544,11 @@ export default function OrdersPage() {
               </button>
               <button
                 onClick={() => {
-                  const el = document.getElementById('receive-warehouse') as HTMLSelectElement;
+                  const el = document.querySelector('input[name="receive-warehouse"]:checked') as HTMLInputElement;
+                  if (!el) {
+                    alert('Sélectionnez un magasin de réception');
+                    return;
+                  }
                   receiveOrder(showReceive.id, el.value);
                 }}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-black text-sm transition"
