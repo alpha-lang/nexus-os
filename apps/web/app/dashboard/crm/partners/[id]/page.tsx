@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { apiFetch } from '../../../../lib/api';
+import { apiFetch } from '../../../../../lib/api';
 import { useParams, useRouter } from 'next/navigation';
-import ConfirmDialog from '../../../../components/ConfirmDialog';
-import { Modal, Button, Badge, FormField, Input } from '../../../../components/ui';
+import ConfirmDialog from '../../../../../components/ConfirmDialog';
+import { Modal, Button, Badge, FormField, Input } from '../../../../../components/ui';
 
 const STATUS_META: Record<string, { label: string; variant: any; icon: string }> = {
   PENDING: { label: 'En attente', variant: 'warning', icon: '⏳' },

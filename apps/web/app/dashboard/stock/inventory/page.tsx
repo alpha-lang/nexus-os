@@ -190,7 +190,7 @@ export default function InventoryPage() {
     const win = window.open('', '_blank', 'width=800,height=900');
     if (!win) return;
 
-    const lines = (detail.lines || []).map((l) => `
+    const lines = (detail.lines || []).map((l: any) => `
       <tr style="${l.isLoss ? 'background:#fef2f2' : 'background:#f0fdf4'}">
         <td style="padding:8px;border-bottom:1px solid #e2e8f0">
           <div style="font-weight:bold">${l.name}</div>

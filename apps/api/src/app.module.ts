@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { UsersModule } from './users/users.module';
 import { CustomersModule } from './customers/customers.module';
+import { CrmModule } from './crm/crm.module';
 import { ModulesModule } from './modules/modules.module';
 import { SalesModule } from './sales/sales.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
@@ -31,6 +32,7 @@ import { StockModule } from './stock/stock.module';
     OrganizationsModule,
     UsersModule,
     CustomersModule,
+    CrmModule,
     ModulesModule,
     SalesModule,
     SubscriptionsModule,
