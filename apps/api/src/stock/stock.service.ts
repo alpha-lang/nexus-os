@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { paginate } from '../common/pagination/paginate';
 
 @Injectable()
 export class StockService {
@@ -365,21 +366,21 @@ export class StockService {
       if (filters.to) where.createdAt.lte = new Date(filters.to);
     }
 
-    return this.prisma.stockMovement.findMany({
+    const take = filters.take ? parseInt(filters.take, 10) : 50;
+
+    return paginate(this.prisma.stockMovement, {
       where,
+      orderBy: { createdAt: 'desc' },
+      take,
+      cursor: filters.cursor,
       include: {
         item: { select: { id: true, name: true, unit: true, category: true } },
         warehouse: { select: { id: true, name: true, code: true } },
         user: { select: { id: true, name: true, email: true } },
       },
-      orderBy: { createdAt: 'desc' },
-      take: 500,
     });
   }
 
-  /**
-   * Cree un mouvement et ajuste le stock de l'article + StockItemStock du magasin.
-   */
   async createMovement(user: any, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Acces refuse');
     const orgId = await this.getOrganizationId(user);

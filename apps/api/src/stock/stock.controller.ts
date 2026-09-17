@@ -33,7 +33,19 @@ export class StockController {
   @Delete('items/:id') removeItem(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeItem(u, id); }
 
   // MOVEMENTS
-  @Get('movements') movements(@CurrentUser() u: any, @Query() q: any) { return this.service.findAllMovements(u, q); }
+  @Get('movements')
+  movements(
+    @CurrentUser() u: any,
+    @Query('cursor') cursor?: string,
+    @Query('take') take?: string,
+    @Query('type') type?: string,
+    @Query('itemId') itemId?: string,
+    @Query('warehouseId') warehouseId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.findAllMovements(u, { cursor, take, type, itemId, warehouseId, from, to });
+  }
   @Post('movements') createMovement(@CurrentUser() u: any, @Body() b: any) { return this.service.createMovement(u, b); }
   @Delete('movements/:id') removeMovement(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeMovement(u, id); }
 
