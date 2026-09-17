@@ -38,8 +38,10 @@ enum RoomStatus {
 }
 
 enum ReservationStatus {
-  PENDING
-  CONFIRMED
+  QUOTED        // Devis envoyé, en attente d'acceptation
+  PENDING       // Confirmé mais sans acompte
+  DEPOSIT_PAID  // Acompte versé
+  CONFIRMED     // Entièrement confirmé
   CHECKED_IN
   CHECKED_OUT
   CANCELLED
@@ -421,6 +423,9 @@ model Reservation {
   status           ReservationStatus @default(PENDING)
   totalAmount      Float             @default(0)
   paidAmount       Float             @default(0)
+  depositAmount    Float             @default(0)
+  depositPaidAt    DateTime?
+  cancellationPolicyDays Int?
   notes            String?
   customerId       String
   customer         Partner           @relation(fields: [customerId], references: [id])

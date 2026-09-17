@@ -61,6 +61,13 @@ export default function ReservationsPage() {
   const [paidAmount, setPaidAmount] = useState('0');
   const [notes, setNotes] = useState('');
 
+  // Acompte
+  const [depositModal, setDepositModal] = useState<any>(null);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositMethod, setDepositMethod] = useState('CASH');
+  const [depositNotes, setDepositNotes] = useState('');
+  const [depositSaving, setDepositSaving] = useState(false);
+
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function loadAll() {
@@ -154,6 +161,44 @@ export default function ReservationsPage() {
   }, [search, statusFilter, dateFrom, dateTo, sortKey, sortDir]);
 
   const due = totals.total - totals.paid;
+
+  async function saveDeposit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!depositModal) return;
+    setDepositSaving(true);
+    try {
+      const res = await apiFetch(`/api/hotel/reservations/${depositModal.id}/deposit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: parseFloat(depositAmount) || 0,
+          method: depositMethod,
+          notes: depositNotes,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Erreur');
+      }
+      setDepositModal(null);
+      setDepositAmount('');
+      setDepositNotes('');
+      await loadAll();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDepositSaving(false);
+    }
+  }
+
+  function openDepositModal(r: any) {
+    setDepositModal(r);
+    const remaining = (r.totalAmount || 0) - (r.paidAmount || 0);
+    // Par défaut : 30% du total
+    setDepositAmount(Math.max(0, Math.round(r.totalAmount * 0.3)).toString());
+    setDepositMethod('CASH');
+    setDepositNotes('');
+  }
 
   function openModal(r?: any) {
     setError(null);
@@ -387,6 +432,9 @@ export default function ReservationsPage() {
                         <button onClick={() => quickCheckOut(r)} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 mr-1" title="Check-out">👋</button>
                       )}
                       <a href={`/dashboard/reservations/${r.id}`} className="text-xs text-teal-600 hover:underline mr-2" title="Folio">🧾</a>
+                      {((r.totalAmount || 0) - (r.paidAmount || 0)) > 0 && (
+                        <button onClick={() => openDepositModal(r)} className="text-xs text-emerald-600 hover:underline mr-2" title="Enregistrer un acompte">💰</button>
+                      )}
                       <button onClick={() => openModal(r)} className="text-xs text-blue-600 hover:underline mr-2">Modif.</button>
                       <button onClick={() => setReservationToDelete(r)} className="text-xs text-red-600 hover:underline">Suppr.</button>
                     </td>
@@ -596,6 +644,109 @@ export default function ReservationsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Modal enregistrer acompte */}
+      {depositModal && (
+        <Modal
+          open={!!depositModal}
+          onClose={() => setDepositModal(null)}
+          title="Enregistrer un acompte"
+          subtitle={`Résa ${depositModal.reference} — ${depositModal.customer?.firstName} ${depositModal.customer?.lastName}`}
+          icon={<span className="text-2xl">💰</span>}
+          size="md"
+          footer={
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => setDepositModal(null)}>Annuler</Button>
+              <button
+                type="submit"
+                form="deposit-form"
+                disabled={depositSaving}
+                className="flex-1 bg-linear-to-r from-emerald-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50"
+              >
+                {depositSaving ? 'Enregistrement...' : 'Enregistrer l\'acompte'}
+              </button>
+            </div>
+          }
+        >
+          <form id="deposit-form" onSubmit={saveDeposit} className="space-y-4">
+            <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Total séjour</span>
+                <span className="font-bold tabular-nums">
+                  {(depositModal.totalAmount || 0).toLocaleString('fr-FR')} Ar
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Déjà payé</span>
+                <span className="font-bold text-emerald-600 tabular-nums">
+                  {(depositModal.paidAmount || 0).toLocaleString('fr-FR')} Ar
+                </span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-slate-200">
+                <span className="font-bold text-slate-900">Solde dû</span>
+                <span className="font-black text-red-600 tabular-nums text-lg">
+                  {((depositModal.totalAmount || 0) - (depositModal.paidAmount || 0)).toLocaleString('fr-FR')} Ar
+                </span>
+              </div>
+            </div>
+
+            <FormField label="Montant de l'acompte (Ar)" required>
+              <Input
+                type="number"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                placeholder="30000"
+                required
+              />
+            </FormField>
+
+            <div className="flex gap-2">
+              {[30, 50, 100].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setDepositAmount(Math.round(depositModal.totalAmount * pct / 100).toString())}
+                  className="flex-1 py-2 bg-slate-100 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
+                >
+                  {pct}%
+                </button>
+              ))}
+            </div>
+
+            <FormField label="Mode de paiement">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { v: 'CASH', l: 'Espèces', i: '💵' },
+                  { v: 'CARD', l: 'Carte', i: '💳' },
+                  { v: 'MOBILE', l: 'Mobile', i: '📱' },
+                ].map((m) => (
+                  <button
+                    key={m.v}
+                    type="button"
+                    onClick={() => setDepositMethod(m.v)}
+                    className={`py-2.5 rounded-lg text-xs font-bold border-2 transition ${
+                      depositMethod === m.v
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    {m.i} {m.l}
+                  </button>
+                ))}
+              </div>
+            </FormField>
+
+            <FormField label="Notes (optionnel)">
+              <Input
+                type="text"
+                value={depositNotes}
+                onChange={(e) => setDepositNotes(e.target.value)}
+                placeholder="Référence virement, reçu n°…"
+              />
+            </FormField>
+          </form>
+        </Modal>
+      )}
 
       <ConfirmDialog
         open={!!reservationToDelete}

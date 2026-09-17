@@ -56,6 +56,12 @@ export class HotelController {
   @Patch('reservations/:id/check-in') checkIn(@CurrentUser() u: any, @Param('id') id: string) { return this.service.checkIn(u, id); }
   @Patch('reservations/:id/check-out') checkOut(@CurrentUser() u: any, @Param('id') id: string) { return this.service.checkOut(u, id); }
 
+  // ACOMPTE : enregistrer un acompte sur une reservation
+  @Post('reservations/:id/deposit')
+  recordDeposit(@CurrentUser() u: any, @Param('id') id: string, @Body() b: any) {
+    return this.service.recordDeposit(u, id, b);
+  }
+
   // HOUSEKEEPING
   @Get('housekeeping') hkList(@CurrentUser() u: any, @Query('status') s?: string) { return this.service.findAllHousekeeping(u, s); }
   @Post('housekeeping') hkCreate(@CurrentUser() u: any, @Body() b: any) { return this.service.createHousekeeping(u, b); }

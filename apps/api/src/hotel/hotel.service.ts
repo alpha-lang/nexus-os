@@ -887,4 +887,83 @@ export class HotelService {
       },
     };
   }
+
+  // ═══════════════════════════════════════════════════════
+  //  ACOMPTE — Enregistre un acompte sur une réservation
+  // ═══════════════════════════════════════════════════════
+  async recordDeposit(user: any, id: string, data: any) {
+    if (!this.canWrite(user)) throw new ForbiddenException('Accès refusé');
+    const orgId = await this.getOrganizationId(user);
+
+    const reservation = await this.prisma.reservation.findFirst({
+      where: { id, organizationId: orgId },
+    });
+    if (!reservation) throw new NotFoundException('Réservation introuvable');
+
+    const amount = parseFloat(data.amount);
+    if (!amount || amount <= 0) {
+      throw new BadRequestException('Montant invalide');
+    }
+
+    const remaining = reservation.totalAmount - reservation.paidAmount;
+    if (amount > remaining + 0.01) {
+      throw new BadRequestException(`Dépasse le solde dû (${remaining.toFixed(0)} Ar)`);
+    }
+
+    const newPaid = reservation.paidAmount + amount;
+    const newDeposit = reservation.depositAmount + amount;
+
+    // Détermine le nouveau statut
+    let newStatus = reservation.status;
+    if (reservation.status === 'QUOTED' || reservation.status === 'PENDING') {
+      newStatus = 'DEPOSIT_PAID';
+    }
+
+    // Récupère la session de caisse ouverte
+    const openSession = await this.prisma.cashSession.findFirst({
+      where: {
+        organizationId: orgId,
+        closedAt: null,
+        register: { status: 'OPEN' },
+      },
+      orderBy: { openedAt: 'desc' },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Mise à jour de la réservation
+      const updated = await tx.reservation.update({
+        where: { id },
+        data: {
+          paidAmount: newPaid,
+          depositAmount: newDeposit,
+          depositPaidAt: new Date(),
+          status: newStatus,
+        },
+        include: { customer: true, room: { include: { roomType: true } } },
+      });
+
+      // 2. Si une caisse est ouverte → créer un mouvement SALE
+      if (openSession) {
+        await tx.cashMovement.create({
+          data: {
+            registerId: openSession.registerId,
+            sessionId: openSession.id,
+            type: 'DEPOSIT',
+            amount,
+            reason: `Acompte résa ${reservation.reference}`,
+            reference: reservation.reference,
+            userId: user.userId || user.id,
+            organizationId: orgId,
+          },
+        });
+
+        await tx.cashRegister.update({
+          where: { id: openSession.registerId },
+          data: { currentBalance: { increment: amount } },
+        });
+      }
+
+      return updated;
+    });
+  }
 }
