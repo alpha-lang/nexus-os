@@ -1,5 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import express from 'express';
 
@@ -43,6 +45,17 @@ async function bootstrap() {
       maxAge: 86400,
     });
 
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,              // Supprime les champs non déclarés dans le DTO
+        forbidNonWhitelisted: true,   // Renvoie 400 si champ inconnu envoyé
+        transform: true,              // Convertit les types (string → number, etc.)
+        transformOptions: { enableImplicitConversion: true },
+      }),
+    );
+
+    app.useGlobalFilters(new AllExceptionsFilter());
+
     await app.init();
   })();
 
@@ -60,7 +73,7 @@ if (!process.env.VERCEL && require.main === module) {
   bootstrap().then(() => {
     const port = process.env.PORT ?? 3001;
     server.listen(port, () => {
-      console.log(`🚀 NEXUS API démarrée sur http://localhost:${port}`);
+      Logger.log(`🚀 NEXUS API démarrée sur http://localhost:${port}`, 'Bootstrap');
     });
   });
 }

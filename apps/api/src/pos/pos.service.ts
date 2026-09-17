@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PosService {
+  private readonly logger = new Logger(PosService.name);
+
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -83,7 +85,7 @@ export class PosService {
         });
       });
     } catch (e) {
-      console.error('[adjustStock] Erreur:', e);
+      this.logger.error('[adjustStock] Erreur', e instanceof Error ? e.stack : String(e));
     }
   }
 
@@ -430,7 +432,7 @@ export class PosService {
       });
 
       if (!register) {
-        console.warn(
+        this.logger.warn(
           `[recordCashSale] Aucune caisse OUVERTE - vente POS ${orderId.slice(-4).toUpperCase()} ${amount} Ar NON journalisee. Ouvrez une caisse puis saisissez un mouvement manuel.`,
         );
         return;
@@ -462,7 +464,7 @@ export class PosService {
         });
       });
     } catch (err) {
-      console.error('[recordCashSale] Erreur:', err);
+      this.logger.error('[recordCashSale] Erreur', err instanceof Error ? err.stack : String(err));
     }
   }
 
