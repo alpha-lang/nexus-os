@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { apiFetch, unwrap } from '../../../lib/api';
+import { useSearchParams } from 'next/navigation';
 import { usePagination } from '../../../lib/usePagination';
 import { Modal, Button, FormField, Input, Select, Textarea } from '../../../components/ui';
 import { Pagination } from '../../../lib/Pagination';
@@ -50,6 +51,17 @@ export default function CrmPage() {
   }
 
   useEffect(() => { load().catch(console.error).finally(() => setLoading(false)); }, []);
+
+  // Auto-ouvre la modale si ?new=SUPPLIER ou ?new=CUSTOMER
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const preset = searchParams.get('new');
+    if (preset === 'SUPPLIER' || preset === 'CUSTOMER' || preset === 'BOTH') {
+      resetForm();
+      setNType(preset as any);
+      setShowCreate(true);
+    }
+  }, [searchParams]);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 

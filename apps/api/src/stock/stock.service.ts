@@ -301,6 +301,102 @@ export class StockService {
     });
   }
 
+  /**
+   * Vue enrichie des fournisseurs avec métriques stock :
+   * articles fournis, commandes, achats, ruptures, délai.
+   */
+  async getSuppliersStats(user: any) {
+    const orgId = await this.getOrganizationId(user);
+
+    // 1. Fournisseurs (Partner SUPPLIER ou BOTH)
+    const suppliers = await this.prisma.partner.findMany({
+      where: { organizationId: orgId, type: { in: ['SUPPLIER', 'BOTH'] } },
+      orderBy: { name: 'asc' },
+    });
+
+    // 2. Tous les articles liés à un fournisseur (1 requête)
+    const allItems = await this.prisma.stockItem.findMany({
+      where: { organizationId: orgId, supplierId: { not: null } },
+      select: { id: true, supplierId: true, currentStock: true, minStock: true },
+    });
+
+    const itemsBySupplier: Record<string, { total: number; critical: number; out: number }> = {};
+    for (const it of allItems) {
+      if (!it.supplierId) continue;
+      if (!itemsBySupplier[it.supplierId]) itemsBySupplier[it.supplierId] = { total: 0, critical: 0, out: 0 };
+      const slot = itemsBySupplier[it.supplierId];
+      slot.total++;
+      if (it.currentStock <= 0) slot.out++;
+      else if (it.currentStock <= it.minStock) slot.critical++;
+    }
+
+    // 3. Toutes les commandes (1 requête)
+    const allOrders = await this.prisma.purchaseOrder.findMany({
+      where: { organizationId: orgId },
+      select: {
+        id: true, reference: true, supplierId: true, status: true,
+        totalAmount: true, createdAt: true, receivedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const ordersBySupplier: Record<string, {
+      total: number; pending: number; received: number;
+      totalPurchases: number; lastOrderAt: Date | null;
+    }> = {};
+
+    for (const o of allOrders) {
+      if (!ordersBySupplier[o.supplierId]) {
+        ordersBySupplier[o.supplierId] = { total: 0, pending: 0, received: 0, totalPurchases: 0, lastOrderAt: null };
+      }
+      const s = ordersBySupplier[o.supplierId];
+      s.total++;
+      if (['DRAFT', 'SENT', 'PARTIAL'].includes(o.status)) s.pending++;
+      if (o.status === 'RECEIVED') {
+        s.received++;
+        s.totalPurchases += o.totalAmount || 0;
+      }
+      if (!s.lastOrderAt) s.lastOrderAt = o.createdAt;
+    }
+
+    // 4. Fusion
+    const enriched = suppliers.map((s) => {
+      const items = itemsBySupplier[s.id] || { total: 0, critical: 0, out: 0 };
+      const orders = ordersBySupplier[s.id] || { total: 0, pending: 0, received: 0, totalPurchases: 0, lastOrderAt: null };
+      return {
+        id: s.id,
+        name: s.name,
+        contactName: s.contactName,
+        phone: s.phone,
+        email: s.email,
+        address: s.address,
+        city: s.city,
+        leadTimeDays: s.leadTimeDays,
+        notes: s.notes,
+        isActive: s.isActive,
+        articlesCount: items.total,
+        articlesCritical: items.critical,
+        articlesOut: items.out,
+        totalOrders: orders.total,
+        pendingOrders: orders.pending,
+        receivedOrders: orders.received,
+        totalPurchases: Math.round(orders.totalPurchases),
+        lastOrderAt: orders.lastOrderAt,
+      };
+    });
+
+    // 5. Totaux globaux
+    const summary = {
+      totalSuppliers: enriched.length,
+      totalArticles: enriched.reduce((s, x) => s + x.articlesCount, 0),
+      totalPendingOrders: enriched.reduce((s, x) => s + x.pendingOrders, 0),
+      totalPurchases: enriched.reduce((s, x) => s + x.totalPurchases, 0),
+      suppliersWithAlerts: enriched.filter((x) => x.articlesCritical + x.articlesOut > 0).length,
+    };
+
+    return { summary, suppliers: enriched };
+  }
+
   async createSupplier(user: any, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Acces refuse');
     const isSuperAdmin = user.role === 'SUPER_ADMIN' && user.isOwner;

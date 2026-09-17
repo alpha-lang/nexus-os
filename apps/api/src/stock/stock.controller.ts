@@ -34,6 +34,11 @@ export class StockController {
 
   // SUPPLIERS
   @Get('suppliers') suppliers(@CurrentUser() u: any) { return this.service.findAllSuppliers(u); }
+
+  @Get('suppliers/stats')
+  suppliersStats(@CurrentUser() u: any) {
+    return this.service.getSuppliersStats(u);
+  }
   @Post('suppliers') createSupplier(@CurrentUser() u: any, @Body() b: any) { return this.service.createSupplier(u, b); }
   @Patch('suppliers/:id') updateSupplier(@CurrentUser() u: any, @Param('id') id: string, @Body() b: any) { return this.service.updateSupplier(u, id, b); }
   @Delete('suppliers/:id') removeSupplier(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeSupplier(u, id); }
