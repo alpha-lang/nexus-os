@@ -1,10 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, PermissionsGuard) // ← Ajout de PermissionsGuard
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UsersController {
   constructor(private readonly service: UsersService) {}
 
@@ -19,13 +23,13 @@ export class UsersController {
   }
 
   @Post()
-  create(@Body() body: any, @Req() req: any) {
-    return this.service.create(body, req.user);
+  create(@Body() dto: CreateUserDto, @Req() req: any) {
+    return this.service.create(dto, req.user);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    return this.service.update(id, body, req.user);
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req: any) {
+    return this.service.update(id, dto, req.user);
   }
 
   @Delete(':id')

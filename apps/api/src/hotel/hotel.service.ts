@@ -502,36 +502,55 @@ export class HotelService {
     });
     if (!room) throw new NotFoundException('Chambre introuvable');
 
-    const conflict = await this.prisma.reservation.findFirst({
-      where: {
-        roomId: data.roomId,
-        status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-        AND: [{ checkInDate: { lt: checkOut } }, { checkOutDate: { gt: checkIn } }],
-      },
-    });
-    if (conflict) throw new BadRequestException(`Chambre ${room.number} déjà réservée`);
-
     const nights = this.computeNights(checkIn, checkOut);
     const totalAmount = data.totalAmount ?? nights * (room.roomType?.basePrice || 0);
-    const reference = await this.generateReference(orgId);
 
-    return this.prisma.reservation.create({
-      data: {
-        reference,
-        checkInDate: checkIn,
-        checkOutDate: checkOut,
-        adults: data.adults || 1,
-        children: data.children || 0,
-        status: data.status || 'PENDING',
-        totalAmount,
-        paidAmount: data.paidAmount || 0,
-        notes: data.notes || null,
-        customerId: data.customerId,
-        roomId: data.roomId,
-        organizationId: orgId,
+    // Transaction SERIALIZABLE : empêche la surréservation en cas de concurrence
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Re-check conflit DANS la transaction
+        const conflict = await tx.reservation.findFirst({
+          where: {
+            roomId: data.roomId,
+            organizationId: orgId,
+            status: { in: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'DEPOSIT_PAID', 'QUOTED'] },
+            AND: [{ checkInDate: { lt: checkOut } }, { checkOutDate: { gt: checkIn } }],
+          },
+        });
+        if (conflict) {
+          throw new BadRequestException(`Chambre ${room.number} déjà réservée sur cette période`);
+        }
+
+        const reference = await this.generateReferenceInTx(tx, orgId);
+
+        return tx.reservation.create({
+          data: {
+            reference,
+            checkInDate: checkIn,
+            checkOutDate: checkOut,
+            adults: data.adults || 1,
+            children: data.children || 0,
+            status: data.status || 'PENDING',
+            totalAmount,
+            paidAmount: data.paidAmount || 0,
+            notes: data.notes || null,
+            customerId: data.customerId,
+            roomId: data.roomId,
+            organizationId: orgId,
+          },
+          include: { customer: true, room: { include: { roomType: true } } },
+        });
       },
-      include: { customer: true, room: { include: { roomType: true } } },
-    });
+      { isolationLevel: 'Serializable' },
+    );
+  }
+
+  private async generateReferenceInTx(tx: any, orgId: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const count = await tx.reservation.count({ where: { organizationId: orgId } });
+    // Timestamp suffix : évite les collisions en cas de comptage obsolète
+    const suffix = Date.now().toString().slice(-4);
+    return `RES-${year}-${String(count + 1).padStart(4, '0')}-${suffix}`;
   }
 
   async updateReservation(user: any, id: string, data: any) {

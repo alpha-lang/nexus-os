@@ -370,51 +370,91 @@ export class PosService {
   async payOrder(user: any, orderId: string, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Accès refusé');
     const orgId = await this.getOrganizationId(user);
-    const order = await this.prisma.restaurantOrder.findFirst({
-      where: { id: orderId, organizationId: orgId }, include: { items: true },
-    });
-    if (!order) throw new NotFoundException('Commande introuvable');
 
     const amount = parseFloat(data.amount) || 0;
     if (amount <= 0) throw new BadRequestException('Montant invalide');
+    const method = data.method || 'CASH';
 
-    const remaining = order.total - order.paidAmount;
-    if (amount > remaining + 0.01) throw new BadRequestException(`Dépasse le reste dû (${remaining.toFixed(0)} Ar)`);
-
-    // Recupere la session ouverte (s il y en a une) pour lier le paiement
-    const openSession = await this.prisma.cashSession.findFirst({
-      where: {
-        organizationId: orgId,
-        closedAt: null,
-        register: { status: 'OPEN' },
-      },
-      orderBy: { openedAt: 'desc' },
-    });
-
-    await this.prisma.orderPayment.create({ data: {
-      orderId,
-      amount,
-      method: data.method || 'CASH',
-      notes: data.notes || null,
-      cashSessionId: openSession?.id || null,
-    }});
-
-    const newPaid = order.paidAmount + amount;
-    let paymentStatus = 'PARTIAL';
-    if (newPaid >= order.total - 0.01) paymentStatus = 'PAID';
-
-    const updated = await this.prisma.restaurantOrder.update({
-      where: { id: orderId },
-      data: { paidAmount: newPaid, paymentStatus, status: paymentStatus === 'PAID' ? 'PAID' : order.status },
-      include: { items: true, payments: true },
-    });
-
-    // ═══ Auto-création mouvement caisse si paiement ESPÈCES ═══
-    if (data.method === 'CASH' && amount > 0) {
-      await this.recordCashSale(orgId, user, amount, updated.id);
+    // ─── Résolution de la session ouverte AVANT la transaction ───
+    let openSession: any = null;
+    if (method === 'CASH') {
+      openSession = await this.prisma.cashSession.findFirst({
+        where: { organizationId: orgId, closedAt: null, register: { status: 'OPEN' } },
+        orderBy: { openedAt: 'desc' },
+      });
+      if (!openSession) {
+        throw new BadRequestException(
+          'Aucune caisse ouverte. Ouvrez une caisse avant d\'encaisser une vente.',
+        );
+      }
+    } else {
+      openSession = await this.prisma.cashSession.findFirst({
+        where: { organizationId: orgId, closedAt: null, register: { status: 'OPEN' } },
+        orderBy: { openedAt: 'desc' },
+      });
     }
 
-    return updated;
+    // ─── Transaction unique : Order + Payment + CashMovement + CashRegister ───
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.restaurantOrder.findFirst({
+        where: { id: orderId, organizationId: orgId },
+        include: { items: true },
+      });
+      if (!order) throw new NotFoundException('Commande introuvable');
+
+      const remaining = order.total - order.paidAmount;
+      if (amount > remaining + 0.01) {
+        throw new BadRequestException(`Dépasse le reste dû (${remaining.toFixed(0)} Ar)`);
+      }
+
+      const newPaid = order.paidAmount + amount;
+      const paymentStatus = newPaid >= order.total - 0.01 ? 'PAID' : 'PARTIAL';
+
+      // 1. Payment
+      await tx.orderPayment.create({
+        data: {
+          orderId,
+          amount,
+          method,
+          notes: data.notes || null,
+          cashSessionId: openSession?.id || null,
+        },
+      });
+
+      // 2. Order
+      const updated = await tx.restaurantOrder.update({
+        where: { id: orderId },
+        data: {
+          paidAmount: newPaid,
+          paymentStatus,
+          status: paymentStatus === 'PAID' ? 'PAID' : order.status,
+        },
+        include: { items: true, payments: true },
+      });
+
+      // 3. Caisse (uniquement espèces)
+      if (method === 'CASH' && openSession) {
+        await tx.cashMovement.create({
+          data: {
+            registerId: openSession.registerId,
+            sessionId: openSession.id,
+            reservationId: order.reservationId || null,
+            type: 'SALE',
+            amount,
+            reason: `Vente POS ${orderId.slice(-4).toUpperCase()}`,
+            reference: orderId,
+            userId: user.userId || user.id,
+            organizationId: orgId,
+          },
+        });
+        await tx.cashRegister.update({
+          where: { id: openSession.registerId },
+          data: { currentBalance: { increment: amount } },
+        });
+      }
+
+      return updated;
+    });
   }
 
   /**

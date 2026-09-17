@@ -16,8 +16,13 @@ export class CustomersService {
   //  CREATE PARTNER (client / fournisseur / les deux)
   // ═══════════════════════════════════════════════════════
   async createPartner(user: any, data: any) {
-    const orgId = user.organizationId;
-    if (!orgId) throw new ForbiddenException('Organisation requise');
+    const isSuperAdmin = user.role === 'SUPER_ADMIN' && user.isOwner;
+    const orgId = isSuperAdmin ? (data.organizationId || user.organizationId) : user.organizationId;
+    if (!orgId) {
+      throw new ForbiddenException(
+        isSuperAdmin ? 'Veuillez préciser data.organizationId' : 'Organisation requise',
+      );
+    }
 
     const validTypes = ['CUSTOMER', 'SUPPLIER', 'BOTH'];
     const type = validTypes.includes(data.type) ? data.type : 'CUSTOMER';

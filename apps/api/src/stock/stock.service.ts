@@ -146,7 +146,8 @@ export class StockService {
 
   async createSupplier(user: any, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Acces refuse');
-    const orgId = await this.getOrganizationId(user);
+    const isSuperAdmin = user.role === 'SUPER_ADMIN' && user.isOwner;
+    const orgId = isSuperAdmin ? (data.organizationId || await this.getOrganizationId(user)) : await this.getOrganizationId(user);
     return this.prisma.partner.create({
       data: {
         type: 'SUPPLIER',
