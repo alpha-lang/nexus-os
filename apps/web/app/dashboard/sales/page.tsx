@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, Badge, PageHeader, FormField, Input, Select } from '../../../components/ui';
 
@@ -25,8 +26,8 @@ export default function SalesPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/sales', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      fetch('/api/partners?type=CUSTOMER', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      apiFetch('/api/sales', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      apiFetch('/api/partners?type=CUSTOMER', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
     ])
       .then(([s, c]) => {
         setSales(Array.isArray(s) ? s : []);
@@ -41,7 +42,7 @@ export default function SalesPage() {
     setError(null); setSaving(true);
     const method = editing ? 'PATCH' : 'POST';
     const url = editing ? `/api/sales/${editing.id}` : '/api/sales';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ customerId: customerId || null, catalogItemId, quantity: parseInt(quantity) }),
@@ -49,7 +50,7 @@ export default function SalesPage() {
     setSaving(false);
     if (res.ok) {
       setCustomerId(''); setCatalogItemId(''); setQuantity('1'); setShowModal(false); setEditing(null);
-      const updated = await fetch('/api/sales', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json());
+      const updated = await apiFetch('/api/sales', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json());
       setSales(Array.isArray(updated) ? updated : []);
     } else {
       const data = await res.json();
@@ -60,7 +61,7 @@ export default function SalesPage() {
   async function confirmDelete() {
     if (!saleToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/sales/${saleToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/sales/${saleToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setSales(sales.filter((s) => s.id !== saleToDelete.id));
     setSaleToDelete(null); setIsDeleting(false);
   }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select, Textarea } from '../../../components/ui';
 
@@ -52,7 +53,7 @@ export default function OrganizationsPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
-    const res = await fetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setOrganizations(Array.isArray(data) ? data : []);
   }
@@ -95,7 +96,7 @@ export default function OrganizationsPage() {
     setError(null); setSaving(true);
     const method = editing ? 'PATCH' : 'POST';
     const url = editing ? `/api/organizations/${editing.id}` : '/api/organizations';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, slug, type, city, email, phone, description }),
@@ -115,7 +116,7 @@ export default function OrganizationsPage() {
   async function confirmDelete() {
     if (!orgToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/organizations/${orgToDelete.id}`, {
+    await apiFetch(`/api/organizations/${orgToDelete.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

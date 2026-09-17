@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../lib/api';
 import RevenueChart from '../../components/charts/RevenueChart';
 
 const ORG_TYPES_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -90,27 +91,27 @@ export default function DashboardPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   useEffect(() => {
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(setUser)
       .catch(console.error);
 
-    fetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoading(false));
 
     // Charger Stock uniquement si le module est actif (via /auth/me)
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .catch(() => null)
       .then(me => {
         const hasStock = (me?.modules || []).some((m: any) => m.route === '/dashboard/stock');
         if (!hasStock) return;
         Promise.all([
-          fetch('/api/stock/dashboard', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null).catch(() => null),
-          fetch('/api/stock/movements?limit=5', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).catch(() => []),
+          apiFetch('/api/stock/dashboard', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null).catch(() => null),
+          apiFetch('/api/stock/movements?limit=5', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).catch(() => []),
         ]).then(([d, m]) => {
           if (d) setStockDash(d);
           if (Array.isArray(m)) setStockMvts(m.slice(0, 5));
@@ -120,8 +121,8 @@ export default function DashboardPage() {
     // Bloc original neutralise (garde structure)
     if (false) {
       Promise.all([
-        fetch('/api/stock/dashboard', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('/api/stock/movements?limit=5', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).catch(() => []),
+        apiFetch('/api/stock/dashboard', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null).catch(() => null),
+        apiFetch('/api/stock/movements?limit=5', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).catch(() => []),
       ]).then(([d, m]) => {
         if (d) setStockDash(d);
         if (Array.isArray(m)) setStockMvts(m.slice(0, 5));

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 import { usePagination } from '../../../lib/usePagination';
 import { Pagination } from '../../../lib/Pagination';
 
@@ -55,8 +56,8 @@ export default function StockPage() {
 
   async function load() {
     const [itemsRes, dashRes] = await Promise.all([
-      fetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/stock/dashboard', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/dashboard', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]);
     setItems(Array.isArray(itemsRes) ? itemsRes : []);
     setDashboard(dashRes);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import ConfirmDialog from '../../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Textarea } from '../../../../components/ui';
 
@@ -28,7 +29,7 @@ export default function SuppliersPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
-    const res = await fetch('/api/stock/suppliers', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/stock/suppliers', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setSuppliers(Array.isArray(data) ? data : []);
   }
@@ -63,7 +64,7 @@ export default function SuppliersPage() {
     setError(null); setSaving(true);
     const method = editing ? 'PATCH' : 'POST';
     const url = editing ? `/api/stock/suppliers/${editing.id}` : '/api/stock/suppliers';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, contactName, phone, email, address, leadTimeDays, notes }),
@@ -83,7 +84,7 @@ export default function SuppliersPage() {
   async function confirmDelete() {
     if (!supplierToDelete) return;
     setIsDeleting(true);
-    const res = await fetch(`/api/stock/suppliers/${supplierToDelete.id}`, {
+    const res = await apiFetch(`/api/stock/suppliers/${supplierToDelete.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

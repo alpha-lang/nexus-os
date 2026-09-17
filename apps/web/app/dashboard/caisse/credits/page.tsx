@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { usePagination } from '../../../../lib/usePagination';
 import { Pagination } from '../../../../lib/Pagination';
 
@@ -47,8 +48,8 @@ export default function CreditsPage() {
 
   async function load() {
     const [c, s] = await Promise.all([
-      fetch('/api/pos/credits', { headers }).then(r => r.json()),
-      fetch('/api/pos/credits/stats', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/credits', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/credits/stats', { headers }).then(r => r.json()),
     ]);
     setCredits(Array.isArray(c) ? c : []);
     setStats(s);
@@ -59,7 +60,7 @@ export default function CreditsPage() {
   async function payCredit(e: React.FormEvent) {
     e.preventDefault();
     if (!selected) return;
-    await fetch(`/api/pos/credits/${selected.id}/pay`, {
+    await apiFetch(`/api/pos/credits/${selected.id}/pay`, {
       method: 'POST', headers,
       body: JSON.stringify({ amount: parseFloat(payAmount), method: payMethod }),
     });

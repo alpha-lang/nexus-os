@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import ConfirmDialog from '../../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select } from '../../../../components/ui';
 
@@ -57,7 +58,7 @@ export default function TablesMapPage() {
     let cancelled = false;
     async function loadData() {
       try {
-        const res = await fetch('/api/pos/tables', {
+        const res = await apiFetch('/api/pos/tables', {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -75,7 +76,7 @@ export default function TablesMapPage() {
   }, [token]);
 
   async function reload() {
-    const res = await fetch('/api/pos/tables', {
+    const res = await apiFetch('/api/pos/tables', {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();
@@ -106,7 +107,7 @@ export default function TablesMapPage() {
     setSaving(true);
     const method = editingTable ? 'PATCH' : 'POST';
     const url = editingTable ? `/api/pos/tables/${editingTable.id}` : '/api/pos/tables';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -132,7 +133,7 @@ export default function TablesMapPage() {
 
   async function confirmDelete() {
     if (!tableToDelete) return;
-    await fetch(`/api/pos/tables/${tableToDelete.id}`, {
+    await apiFetch(`/api/pos/tables/${tableToDelete.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

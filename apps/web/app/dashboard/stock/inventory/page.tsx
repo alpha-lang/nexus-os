@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 
 export default function InventoryPage() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -17,8 +18,8 @@ export default function InventoryPage() {
 
   async function load() {
     const [wh, it] = await Promise.all([
-      fetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]);
     setWarehouses(Array.isArray(wh) ? wh : []);
     setItems(Array.isArray(it) ? it : []);
@@ -35,7 +36,7 @@ export default function InventoryPage() {
       reason,
       counts: Object.entries(counts).map(([itemId, qty]) => ({ itemId, quantity: parseFloat(qty) || 0 })),
     };
-    const res = await fetch('/api/stock/inventory/submit', {
+    const res = await apiFetch('/api/stock/inventory/submit', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

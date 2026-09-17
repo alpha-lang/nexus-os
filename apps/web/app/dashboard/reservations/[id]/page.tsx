@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { useParams, useRouter } from 'next/navigation';
 import ConfirmDialog from '../../../../components/ConfirmDialog';
 import { Modal, Button, Badge, FormField, Input, Select, Textarea } from '../../../../components/ui';
@@ -36,7 +37,7 @@ export default function ReservationDetailPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
-    const res = await fetch(`/api/hotel/reservations/${id}/folio`, {
+    const res = await apiFetch(`/api/hotel/reservations/${id}/folio`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('Introuvable');
@@ -50,7 +51,7 @@ export default function ReservationDetailPage() {
   async function saveCharge(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setSaving(true);
-    const res = await fetch(`/api/hotel/reservations/${id}/folio`, {
+    const res = await apiFetch(`/api/hotel/reservations/${id}/folio`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ description, category, quantity: parseInt(quantity), unitPrice: parseFloat(unitPrice) }),
@@ -69,7 +70,7 @@ export default function ReservationDetailPage() {
   async function confirmDelete() {
     if (!chargeToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/hotel/folio/${chargeToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/hotel/folio/${chargeToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     await load();
     setChargeToDelete(null); setIsDeleting(false);
   }

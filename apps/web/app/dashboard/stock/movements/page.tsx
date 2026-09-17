@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { useSearchParams } from 'next/navigation';
 import { usePagination } from '../../../../lib/usePagination';
 import { Pagination } from '../../../../lib/Pagination';
@@ -63,8 +64,8 @@ export default function MovementsPage() {
 
   async function load() {
     const [mvtRes, whRes] = await Promise.all([
-      fetch('/api/stock/movements', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/movements', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]);
     setMovements(Array.isArray(mvtRes) ? mvtRes : []);
     setWarehouses(Array.isArray(whRes) ? whRes : []);

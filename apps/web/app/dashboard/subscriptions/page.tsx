@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 import { Modal, Button, FormField, Input, Select } from '../../../components/ui';
 import { usePagination } from '../../../lib/usePagination';
 import { resolvePrice } from '../../../lib/pricing';
@@ -107,7 +108,7 @@ export default function SubscriptionsPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
-    const res = await fetch('/api/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setSubscriptions(Array.isArray(data) ? data : []);
   }
@@ -118,13 +119,13 @@ export default function SubscriptionsPage() {
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3000); }
 
   async function loadAvailableOrganizations() {
-    const res = await fetch('/api/subscriptions/available-organizations', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/subscriptions/available-organizations', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setAvailableOrganizations(Array.isArray(data) ? data : []);
   }
 
   async function loadModulesForType(type: string) {
-    const res = await fetch(`/api/modules?type=${type}`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch(`/api/modules?type=${type}`, { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setModules(Array.isArray(data) ? data : []);
   }
@@ -132,7 +133,7 @@ export default function SubscriptionsPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setSaving(true);
-    const res = await fetch('/api/subscriptions', {
+    const res = await apiFetch('/api/subscriptions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -156,14 +157,14 @@ export default function SubscriptionsPage() {
   }
 
   async function changeStatus(id: string, action: string) {
-    await fetch(`/api/subscriptions/${id}/${action}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/subscriptions/${id}/${action}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
     showToast('Statut mis a jour');
     await load();
   }
 
   async function toggleModule(subId: string, modId: string, isActive: boolean) {
     const action = isActive ? 'deactivate-module' : 'activate-module';
-    await fetch(`/api/subscriptions/${subId}/${action}/${modId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/subscriptions/${subId}/${action}/${modId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
     await load();
   }
 

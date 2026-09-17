@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 
 function humanSize(mo: number) {
   if (mo < 0.001) return { v: Math.round(mo * 1024 * 1024).toString(), u: 'o' };
@@ -65,8 +66,8 @@ export default function StoragePage() {
 
   async function load() {
     const [q, b] = await Promise.all([
-      fetch('/api/storage', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/storage/backups', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/storage', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/storage/backups', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]);
     setQuotas(Array.isArray(q) ? q : []);
     setBackups(Array.isArray(b) ? b : []);
@@ -78,7 +79,7 @@ export default function StoragePage() {
 
   async function backupNow(orgId: string, name: string) {
     setBusy(orgId);
-    const res = await fetch(`/api/storage/organization/${orgId}/backup`, {
+    const res = await apiFetch(`/api/storage/organization/${orgId}/backup`, {
       method: 'PATCH', headers: { Authorization: `Bearer ${token}` },
     });
     setBusy(null);
@@ -87,7 +88,7 @@ export default function StoragePage() {
   }
 
   async function downloadBackup(id: string, fileName: string) {
-    const res = await fetch(`/api/storage/backup/${id}/download`, {
+    const res = await apiFetch(`/api/storage/backup/${id}/download`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) { showToast('Telechargement impossible'); return; }

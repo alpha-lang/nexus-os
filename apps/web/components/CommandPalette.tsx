@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { apiFetch } from '../lib/api';
 import { useRouter } from 'next/navigation';
 
 const ICONS = {
@@ -75,7 +76,7 @@ export default function CommandPalette() {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+        const res = await apiFetch(`/api/search?q=${encodeURIComponent(query)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

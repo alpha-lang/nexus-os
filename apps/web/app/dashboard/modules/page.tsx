@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select, Textarea } from '../../../components/ui';
 
@@ -54,7 +55,7 @@ export default function ModulesPage() {
   }, [name, routeManuallyEdited]);
 
   async function load() {
-    const res = await fetch('/api/modules', { headers: { Authorization: 'Bearer ' + token } });
+    const res = await apiFetch('/api/modules', { headers: { Authorization: 'Bearer ' + token } });
     const data = await res.json();
     setModules(Array.isArray(data) ? data : []);
   }
@@ -123,7 +124,7 @@ export default function ModulesPage() {
     setError(null); setSaving(true);
     const method = editing ? 'PATCH' : 'POST';
     const url = editing ? '/api/modules/' + editing.id : '/api/modules';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -154,7 +155,7 @@ export default function ModulesPage() {
   async function confirmDelete() {
     if (!moduleToDelete) return;
     setIsDeleting(true);
-    await fetch('/api/modules/' + moduleToDelete.id, {
+    await apiFetch('/api/modules/' + moduleToDelete.id, {
       method: 'DELETE',
       headers: { Authorization: 'Bearer ' + token },
     });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
 import { useRouter } from 'next/navigation';
 
 export default function RoleGuard({ allowedRoles, children }: { allowedRoles: string[], children: React.ReactNode }) {
@@ -14,7 +15,7 @@ export default function RoleGuard({ allowedRoles, children }: { allowedRoles: st
       return;
     }
 
-    fetch('/api/auth/me', {
+    apiFetch('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())

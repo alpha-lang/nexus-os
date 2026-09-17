@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiFetch, setTokens, logout } from '../../lib/api';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -16,15 +17,17 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Erreur de connexion');
-      localStorage.setItem('token', data.token);
+      // Stocke access + refresh tokens
+      setTokens(data.accessToken || data.token, data.refreshToken);
       localStorage.setItem('role', data.user.role);
+      if (data.user.isOwner) localStorage.setItem('isOwner', 'true');
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message);

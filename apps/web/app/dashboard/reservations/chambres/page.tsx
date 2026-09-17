@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import ConfirmDialog from '../../../../components/ConfirmDialog';
 import { Modal, Button, Badge, PageHeader, FormField, Input, Select, Textarea } from '../../../../components/ui';
 import { usePagination } from '../../../../lib/usePagination';
@@ -48,13 +49,13 @@ export default function ChambresPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function loadRooms() {
-    const res = await fetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setRooms(Array.isArray(data) ? data : []);
   }
 
   async function loadRoomTypes() {
-    const res = await fetch('/api/hotel/room-types', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/hotel/room-types', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setRoomTypes(Array.isArray(data) ? data : []);
   }
@@ -86,7 +87,7 @@ export default function ChambresPage() {
     setSaving(true);
     const method = editingRoom ? 'PATCH' : 'POST';
     const url = editingRoom ? `/api/hotel/rooms/${editingRoom.id}` : '/api/hotel/rooms';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -110,7 +111,7 @@ export default function ChambresPage() {
   async function confirmDeleteRoom() {
     if (!roomToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/hotel/rooms/${roomToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/hotel/rooms/${roomToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     await loadRooms();
     setRoomToDelete(null);
     setIsDeleting(false);
@@ -135,7 +136,7 @@ export default function ChambresPage() {
     setSaving(true);
     const method = editingType ? 'PATCH' : 'POST';
     const url = editingType ? `/api/hotel/room-types/${editingType.id}` : '/api/hotel/room-types';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -158,7 +159,7 @@ export default function ChambresPage() {
   async function confirmDeleteType() {
     if (!typeToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/hotel/room-types/${typeToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/hotel/room-types/${typeToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     await loadRoomTypes();
     setTypeToDelete(null);
     setIsDeleting(false);

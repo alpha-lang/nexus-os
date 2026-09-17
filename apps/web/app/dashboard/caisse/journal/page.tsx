@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { usePagination } from '../../../../lib/usePagination';
 import { Pagination } from '../../../../lib/Pagination';
 
@@ -116,10 +117,10 @@ export default function JournalCaissePage() {
 
   async function load() {
     const [regs, movs, sess, st] = await Promise.all([
-      fetch('/api/cash/registers', { headers }).then((r) => r.json()),
-      fetch('/api/cash/movements', { headers }).then((r) => r.json()),
-      fetch('/api/cash/sessions', { headers }).then((r) => r.json()),
-      fetch('/api/cash/stats', { headers }).then((r) => r.json()),
+      apiFetch('/api/cash/registers', { headers }).then((r) => r.json()),
+      apiFetch('/api/cash/movements', { headers }).then((r) => r.json()),
+      apiFetch('/api/cash/sessions', { headers }).then((r) => r.json()),
+      apiFetch('/api/cash/stats', { headers }).then((r) => r.json()),
     ]);
     setRegisters(Array.isArray(regs) ? regs : []);
     setMovements(Array.isArray(movs) ? movs : []);
@@ -151,7 +152,7 @@ export default function JournalCaissePage() {
     e.preventDefault();
     const method = editingRegister ? 'PATCH' : 'POST';
     const url = editingRegister ? `/api/cash/registers/${editingRegister.id}` : '/api/cash/registers';
-    await fetch(url, {
+    await apiFetch(url, {
       method, headers,
       body: JSON.stringify({ name: rName, type: rType, location: rLocation, initialBalance: rInitial }),
     });
@@ -161,7 +162,7 @@ export default function JournalCaissePage() {
 
   async function deleteRegister(id: string) {
     if (!confirm('Supprimer cette caisse ?')) return;
-    await fetch(`/api/cash/registers/${id}`, { method: 'DELETE', headers });
+    await apiFetch(`/api/cash/registers/${id}`, { method: 'DELETE', headers });
     await load();
   }
 
@@ -173,7 +174,7 @@ export default function JournalCaissePage() {
 
   async function saveMovement(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch('/api/cash/movements', {
+    const res = await apiFetch('/api/cash/movements', {
       method: 'POST', headers,
       body: JSON.stringify({ registerId: mRegisterId, type: mType, amount: mAmount, reason: mReason, reference: mRef }),
     });
@@ -188,7 +189,7 @@ export default function JournalCaissePage() {
 
   async function deleteMovement(id: string) {
     if (!confirm('Supprimer ce mouvement ?')) return;
-    await fetch(`/api/cash/movements/${id}`, { method: 'DELETE', headers });
+    await apiFetch(`/api/cash/movements/${id}`, { method: 'DELETE', headers });
     await load();
   }
 
@@ -200,7 +201,7 @@ export default function JournalCaissePage() {
 
   async function confirmOpen(e: React.FormEvent) {
     e.preventDefault();
-    await fetch(`/api/cash/registers/${currentRegister.id}/open`, {
+    await apiFetch(`/api/cash/registers/${currentRegister.id}/open`, {
       method: 'POST', headers,
       body: JSON.stringify({
         openingAmount: Object.entries(openBreakdown).reduce((sum, [d, c]) => sum + parseInt(d) * c, 0) || parseFloat(openAmount) || 0,
@@ -222,7 +223,7 @@ export default function JournalCaissePage() {
 
   async function confirmClose(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch(`/api/cash/registers/${currentRegister.id}/close`, {
+    const res = await apiFetch(`/api/cash/registers/${currentRegister.id}/close`, {
       method: 'POST', headers,
       body: JSON.stringify({
         closingAmount: Object.entries(closeBreakdown).reduce((sum, [d, c]) => sum + parseInt(d) * c, 0) || parseFloat(closeAmount) || 0,

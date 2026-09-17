@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { apiFetch } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, Badge, PageHeader, FormField, Input, Select, Textarea } from '../../../components/ui';
 import { usePagination } from '../../../lib/usePagination';
@@ -64,9 +65,9 @@ export default function ReservationsPage() {
 
   async function loadAll() {
     const [rRes, roomRes, custRes] = await Promise.all([
-      fetch('/api/hotel/reservations', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/partners?type=CUSTOMER', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/hotel/reservations', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/partners?type=CUSTOMER', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [r, room, cust] = await Promise.all([rRes.json(), roomRes.json(), custRes.json()]);
     setReservations(Array.isArray(r) ? r : []);
@@ -195,7 +196,7 @@ export default function ReservationsPage() {
     setSaving(true);
     const method = editing ? 'PATCH' : 'POST';
     const url = editing ? `/api/hotel/reservations/${editing.id}` : '/api/hotel/reservations';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -221,19 +222,19 @@ export default function ReservationsPage() {
   async function confirmDelete() {
     if (!reservationToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/hotel/reservations/${reservationToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/hotel/reservations/${reservationToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     await loadAll();
     setReservationToDelete(null);
     setIsDeleting(false);
   }
 
   async function quickCheckIn(r: any) {
-    await fetch(`/api/hotel/reservations/${r.id}/check-in`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/hotel/reservations/${r.id}/check-in`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
     await loadAll();
   }
 
   async function quickCheckOut(r: any) {
-    await fetch(`/api/hotel/reservations/${r.id}/check-out`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/hotel/reservations/${r.id}/check-out`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
     await loadAll();
   }
 

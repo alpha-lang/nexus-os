@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 
 export default function FoliosPage() {
   const [folios, setFolios] = useState<any[]>([]);
@@ -27,7 +28,7 @@ export default function FoliosPage() {
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   async function load() {
-    const res = await fetch('/api/pos/folios', { headers });
+    const res = await apiFetch('/api/pos/folios', { headers });
     const data = await res.json();
     setFolios(Array.isArray(data) ? data : []);
   }
@@ -37,7 +38,7 @@ export default function FoliosPage() {
   }, []);
 
   async function reloadSelected(reservationId: string) {
-    const res = await fetch('/api/pos/folios', { headers });
+    const res = await apiFetch('/api/pos/folios', { headers });
     const data = await res.json();
     const updated = (data || []).find((f: any) => f.reservationId === reservationId);
     setSelected(updated);
@@ -46,7 +47,7 @@ export default function FoliosPage() {
   async function addCharge(e: React.FormEvent) {
     e.preventDefault();
     if (!selected) return;
-    await fetch(`/api/pos/folios/${selected.reservationId}/charges`, {
+    await apiFetch(`/api/pos/folios/${selected.reservationId}/charges`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -66,7 +67,7 @@ export default function FoliosPage() {
 
   async function removeCharge(chargeId: string) {
     if (!confirm('Supprimer cet extra ?')) return;
-    await fetch(`/api/pos/folios/charges/${chargeId}`, { method: 'DELETE', headers });
+    await apiFetch(`/api/pos/folios/charges/${chargeId}`, { method: 'DELETE', headers });
     await load();
     await reloadSelected(selected.reservationId);
   }
@@ -74,7 +75,7 @@ export default function FoliosPage() {
   async function closeFolio(e: React.FormEvent) {
     e.preventDefault();
     if (!selected) return;
-    await fetch(`/api/pos/folios/${selected.reservationId}/close`, {
+    await apiFetch(`/api/pos/folios/${selected.reservationId}/close`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -91,7 +92,7 @@ export default function FoliosPage() {
   async function checkoutFolio(e: React.FormEvent) {
     e.preventDefault();
     if (!selected) return;
-    await fetch(`/api/pos/folios/${selected.reservationId}/checkout`, {
+    await apiFetch(`/api/pos/folios/${selected.reservationId}/checkout`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ method: payMethod }),

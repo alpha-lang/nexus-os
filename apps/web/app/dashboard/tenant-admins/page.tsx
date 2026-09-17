@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select } from '../../../components/ui';
 
@@ -32,8 +33,8 @@ export default function TenantAdminsPage() {
 
   async function load() {
     const [uRes, oRes] = await Promise.all([
-      fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [u, o] = await Promise.all([uRes.json(), oRes.json()]);
     const allUsers = Array.isArray(u) ? u : [];
@@ -70,7 +71,7 @@ export default function TenantAdminsPage() {
     setError(null); setSaving(true);
     const method = editing ? 'PATCH' : 'POST';
     const url = editing ? `/api/users/${editing.id}` : '/api/users';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, name, role: 'ADMIN', organizationId, password }),
@@ -90,7 +91,7 @@ export default function TenantAdminsPage() {
   async function confirmDelete() {
     if (!adminToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/users/${adminToDelete.id}`, {
+    await apiFetch(`/api/users/${adminToDelete.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

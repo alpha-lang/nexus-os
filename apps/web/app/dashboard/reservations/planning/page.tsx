@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { Button, Badge } from '../../../../components/ui';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -40,7 +41,7 @@ export default function PlanningPage() {
   async function load() {
     const from = weekStart.toISOString();
     const to = addDays(weekStart, daysToShow).toISOString();
-    const res = await fetch(`/api/hotel/planning?from=${from}&to=${to}`, {
+    const res = await apiFetch(`/api/hotel/planning?from=${from}&to=${to}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();

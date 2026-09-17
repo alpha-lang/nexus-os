@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { useParams, useRouter } from 'next/navigation';
 import ConfirmDialog from '../../../../components/ConfirmDialog';
 import { Modal, Button, Badge, FormField, Input } from '../../../../components/ui';
@@ -111,7 +112,7 @@ export default function CustomerDetailPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
-    const res = await fetch(`/api/partners/${id}/full`, {
+    const res = await apiFetch(`/api/partners/${id}/full`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('Client introuvable');
@@ -131,7 +132,7 @@ export default function CustomerDetailPage() {
 
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch(`/api/partners/${id}`, {
+    const res = await apiFetch(`/api/partners/${id}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ firstName, lastName, email: email || null, phone: phone || null, address: address || null, city: city || null }),
@@ -144,7 +145,7 @@ export default function CustomerDetailPage() {
 
   async function confirmDelete() {
     setIsDeleting(true);
-    await fetch(`/api/partners/${id}`, {
+    await apiFetch(`/api/partners/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -152,7 +153,7 @@ export default function CustomerDetailPage() {
   }
 
   async function addTag(tagId: string) {
-    await fetch(`/api/partners/${id}/tags`, {
+    await apiFetch(`/api/partners/${id}/tags`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ tag: tagId }),
@@ -162,7 +163,7 @@ export default function CustomerDetailPage() {
   }
 
   async function removeTag(tagId: string) {
-    await fetch(`/api/partners/${id}/tags/${encodeURIComponent(tagId)}`, {
+    await apiFetch(`/api/partners/${id}/tags/${encodeURIComponent(tagId)}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -173,7 +174,7 @@ export default function CustomerDetailPage() {
     e.preventDefault();
     if (!noteContent.trim()) return;
     setSavingNote(true);
-    await fetch(`/api/partners/${id}/notes`, {
+    await apiFetch(`/api/partners/${id}/notes`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: noteContent }),
@@ -185,7 +186,7 @@ export default function CustomerDetailPage() {
 
   async function confirmDeleteNote() {
     if (!noteToDelete) return;
-    await fetch(`/api/partners/${id}/notes/${noteToDelete.id}`, {
+    await apiFetch(`/api/partners/${id}/notes/${noteToDelete.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -196,7 +197,7 @@ export default function CustomerDetailPage() {
   async function addDocument(e: React.FormEvent) {
     e.preventDefault();
     if (!docName.trim() || !docUrl.trim()) return;
-    await fetch(`/api/partners/${id}/documents`, {
+    await apiFetch(`/api/partners/${id}/documents`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: docName, url: docUrl, type: docType || null }),
@@ -208,7 +209,7 @@ export default function CustomerDetailPage() {
 
   async function confirmDeleteDoc() {
     if (!docToDelete) return;
-    await fetch(`/api/partners/${id}/documents/${docToDelete.id}`, {
+    await apiFetch(`/api/partners/${id}/documents/${docToDelete.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

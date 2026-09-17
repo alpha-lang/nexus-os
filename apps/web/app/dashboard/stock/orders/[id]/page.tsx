@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../../lib/api';
 import { useParams, useRouter } from 'next/navigation';
 import { Modal, Button, FormField, Input, Textarea } from '../../../../../components/ui';
 
@@ -54,10 +55,10 @@ export default function OrderDetailPage() {
 
   async function load() {
     const [o, s, i, w] = await Promise.all([
-      fetch(`/api/stock/orders/${id}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/stock/suppliers', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/stock/orders/${id}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/suppliers', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]);
     if (o.error || o.statusCode === 404) {
       router.push('/dashboard/stock/orders');
@@ -77,21 +78,21 @@ export default function OrderDetailPage() {
   // ═══ ACTIONS ═══
   async function sendOrder() {
     if (!confirm('Envoyer cette commande au fournisseur ?')) return;
-    await fetch(`/api/stock/orders/${id}/send`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/stock/orders/${id}/send`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
     showToast('Commande envoyee');
     await load();
   }
 
   async function cancelOrder() {
     if (!confirm('Annuler cette commande ?')) return;
-    await fetch(`/api/stock/orders/${id}/cancel`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/stock/orders/${id}/cancel`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
     showToast('Commande annulee');
     await load();
   }
 
   async function deleteOrder() {
     if (!confirm('Supprimer definitivement cette commande ?')) return;
-    await fetch(`/api/stock/orders/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/stock/orders/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     showToast('Commande supprimee');
     router.push('/dashboard/stock/orders');
   }
@@ -121,7 +122,7 @@ export default function OrderDetailPage() {
 
   async function saveEdit() {
     setSaving(true);
-    const res = await fetch(`/api/stock/orders/${id}`, {
+    const res = await apiFetch(`/api/stock/orders/${id}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -159,7 +160,7 @@ export default function OrderDetailPage() {
         .filter(([, v]) => parseFloat(v) > 0)
         .map(([itemId, qty]) => ({ itemId, receivedQty: parseFloat(qty) })),
     };
-    const res = await fetch(`/api/stock/orders/${id}/receive`, {
+    const res = await apiFetch(`/api/stock/orders/${id}/receive`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

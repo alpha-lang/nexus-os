@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 import { usePagination } from '../../../lib/usePagination';
 import { Modal, Button, FormField, Input, Select, Textarea } from '../../../components/ui';
 import { Pagination } from '../../../lib/Pagination';
@@ -43,7 +44,7 @@ export default function CrmPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
-    const res = await fetch('/api/partners', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/partners', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setPartners(Array.isArray(data) ? data : []);
   }
@@ -65,7 +66,7 @@ export default function CrmPage() {
   async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setSaving(true);
-    const res = await fetch('/api/partners', {
+    const res = await apiFetch('/api/partners', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

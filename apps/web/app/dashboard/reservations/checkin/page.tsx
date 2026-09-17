@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { Modal, Button, Badge, PageHeader } from '../../../../components/ui';
 
 const STATUS_META: Record<string, { label: string; variant: any; icon: string }> = {
@@ -29,8 +30,8 @@ export default function CheckinPage() {
 
   async function load() {
     const [todayRes, allRes] = await Promise.all([
-      fetch('/api/hotel/today', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/hotel/reservations', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/hotel/today', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/hotel/reservations', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [today, all] = await Promise.all([todayRes.json(), allRes.json()]);
     setArrivals(Array.isArray(today.arrivals) ? today.arrivals : []);
@@ -54,7 +55,7 @@ export default function CheckinPage() {
 
   async function doCheckIn(r: any) {
     setActionLoading(r.id);
-    await fetch(`/api/hotel/reservations/${r.id}/check-in`, {
+    await apiFetch(`/api/hotel/reservations/${r.id}/check-in`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -66,7 +67,7 @@ export default function CheckinPage() {
 
   async function doCheckOut(r: any) {
     setActionLoading(r.id);
-    await fetch(`/api/hotel/reservations/${r.id}/check-out`, {
+    await apiFetch(`/api/hotel/reservations/${r.id}/check-out`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}` },
     });

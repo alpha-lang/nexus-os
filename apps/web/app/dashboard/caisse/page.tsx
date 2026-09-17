@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 import type { ReactNode } from 'react';
 import { usePagination } from '../../../lib/usePagination';
 import { Pagination } from '../../../lib/Pagination';
@@ -109,14 +110,14 @@ export default function CaissePage() {
 
   async function load() {
     const [m, t, o, h, st, r, foliosRes, creditsRes] = await Promise.all([
-      fetch('/api/pos/menu', { headers }).then(r => r.json()),
-      fetch('/api/pos/tables', { headers }).then(r => r.json()),
-      fetch('/api/pos/orders/active', { headers }).then(r => r.json()),
-      fetch('/api/pos/orders', { headers }).then(r => r.json()),
-      fetch('/api/pos/stats', { headers }).then(r => r.json()),
-      fetch('/api/hotel/reservations?status=CHECKED_IN', { headers }).then(r => r.json()),
-      fetch('/api/pos/folios', { headers }).then(r => r.json()),
-      fetch('/api/pos/credits', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/menu', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/tables', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/orders/active', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/orders', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/stats', { headers }).then(r => r.json()),
+      apiFetch('/api/hotel/reservations?status=CHECKED_IN', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/folios', { headers }).then(r => r.json()),
+      apiFetch('/api/pos/credits', { headers }).then(r => r.json()),
     ]);
     setMenu(Array.isArray(m) ? m : []);
     setTables(Array.isArray(t) ? t : []);
@@ -173,7 +174,7 @@ export default function CaissePage() {
   async function saveNewOrder() {
     if (newCart.length === 0) return;
     setError(null); setSaving(true);
-    const res = await fetch('/api/pos/orders', {
+    const res = await apiFetch('/api/pos/orders', {
       method: 'POST', headers,
       body: JSON.stringify({
         serviceType: newServiceType,
@@ -315,7 +316,7 @@ export default function CaissePage() {
 
     // Cas spécial : CREDIT
     if (payMethod === 'CREDIT') {
-      const res = await fetch(`/api/pos/orders/${selectedOrder.id}/credit`, {
+      const res = await apiFetch(`/api/pos/orders/${selectedOrder.id}/credit`, {
         method: 'POST', headers,
         body: JSON.stringify({ notes: paymentNotes }),
       });
@@ -338,7 +339,7 @@ export default function CaissePage() {
         showToast('Aucune chambre rattachee');
         return;
       }
-      const res = await fetch(`/api/pos/orders/${selectedOrder.id}/defer`, {
+      const res = await apiFetch(`/api/pos/orders/${selectedOrder.id}/defer`, {
         method: 'POST', headers,
         body: JSON.stringify({ reservationId: selectedOrder.reservationId }),
       });
@@ -373,7 +374,7 @@ export default function CaissePage() {
       return;
     }
 
-    const res = await fetch(`/api/pos/orders/${selectedOrder.id}/pay`, {
+    const res = await apiFetch(`/api/pos/orders/${selectedOrder.id}/pay`, {
       method: 'POST', headers,
       body: JSON.stringify({ amount: amountToPay, method: payMethod, notes: paymentNotes }),
     });
@@ -394,38 +395,38 @@ export default function CaissePage() {
   }
 
   async function sendToKitchen(orderId: string) {
-    await fetch(`/api/pos/orders/${orderId}/kitchen`, { method: 'PATCH', headers });
+    await apiFetch(`/api/pos/orders/${orderId}/kitchen`, { method: 'PATCH', headers });
     showToast('Envoyé en cuisine');
     await load(); setSelectedOrder(null);
   }
 
   async function cancelOrder(orderId: string) {
     if (!confirm('Annuler cette commande ?')) return;
-    await fetch(`/api/pos/orders/${orderId}/cancel`, { method: 'PATCH', headers, body: JSON.stringify({}) });
+    await apiFetch(`/api/pos/orders/${orderId}/cancel`, { method: 'PATCH', headers, body: JSON.stringify({}) });
     showToast('Commande annulée');
     await load(); setSelectedOrder(null);
   }
 
   async function updateItemQty(itemId: string, qty: number) {
-    await fetch(`/api/pos/orders/items/${itemId}`, { method: 'PATCH', headers, body: JSON.stringify({ quantity: qty }) });
-    const res = await fetch(`/api/pos/orders/${selectedOrder.id}`, { headers });
+    await apiFetch(`/api/pos/orders/items/${itemId}`, { method: 'PATCH', headers, body: JSON.stringify({ quantity: qty }) });
+    const res = await apiFetch(`/api/pos/orders/${selectedOrder.id}`, { headers });
     setSelectedOrder(await res.json()); await load();
   }
 
   async function removeItem(itemId: string) {
-    await fetch(`/api/pos/orders/items/${itemId}`, { method: 'DELETE', headers });
-    const res = await fetch(`/api/pos/orders/${selectedOrder.id}`, { headers });
+    await apiFetch(`/api/pos/orders/items/${itemId}`, { method: 'DELETE', headers });
+    const res = await apiFetch(`/api/pos/orders/${selectedOrder.id}`, { headers });
     setSelectedOrder(await res.json()); await load();
   }
 
   async function addItemsToSelected() {
     if (newCart.length === 0) return;
-    await fetch(`/api/pos/orders/${selectedOrder.id}/items`, {
+    await apiFetch(`/api/pos/orders/${selectedOrder.id}/items`, {
       method: 'POST', headers,
       body: JSON.stringify({ items: newCart.map(x => ({ menuItemId: (x.menuItem?.id || ''), quantity: x.quantity })) }),
     });
     setNewCart([]); setShowAddItems(false);
-    const res = await fetch(`/api/pos/orders/${selectedOrder.id}`, { headers });
+    const res = await apiFetch(`/api/pos/orders/${selectedOrder.id}`, { headers });
     setSelectedOrder(await res.json());
     showToast('Articles ajoutés'); await load();
   }
@@ -446,14 +447,14 @@ export default function CaissePage() {
     e.preventDefault(); setSaving(true);
     const method = editingMenuItem ? 'PATCH' : 'POST';
     const url = editingMenuItem ? `/api/pos/menu/${editingMenuItem.id}` : '/api/pos/menu';
-    const res = await fetch(url, { method, headers, body: JSON.stringify({ name: mName, price: parseFloat(mPrice) || 0, category: mCategory, description: mDescription }) });
+    const res = await apiFetch(url, { method, headers, body: JSON.stringify({ name: mName, price: parseFloat(mPrice) || 0, category: mCategory, description: mDescription }) });
     setSaving(false);
     if (res.ok) { setShowMenuModal(false); setEditingMenuItem(null); await load(); }
   }
 
   async function deleteMenuItem() {
     if (!menuItemToDelete) return;
-    await fetch(`/api/pos/menu/${menuItemToDelete.id}`, { method: 'DELETE', headers });
+    await apiFetch(`/api/pos/menu/${menuItemToDelete.id}`, { method: 'DELETE', headers });
     setMenuItemToDelete(null); await load();
   }
 

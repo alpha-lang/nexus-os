@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { Modal, Button, FormField, Input, Textarea } from '../../../../components/ui';
 
 export default function RecipesPage() {
@@ -25,9 +26,9 @@ export default function RecipesPage() {
 
   async function load() {
     const [r, i, m] = await Promise.all([
-      fetch('/api/stock/recipes', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/pos/menu', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/recipes', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/pos/menu', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]);
     setRecipes(Array.isArray(r) ? r : []);
     setItems(Array.isArray(i) ? i : []);
@@ -63,7 +64,7 @@ export default function RecipesPage() {
     setError(null); setSaving(true);
     const method = editing ? 'PATCH' : 'POST';
     const url = editing ? `/api/stock/recipes/${editing.id}` : '/api/stock/recipes';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

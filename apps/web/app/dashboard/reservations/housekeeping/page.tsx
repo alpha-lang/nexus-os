@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import ConfirmDialog from '../../../../components/ConfirmDialog';
 import { Modal, Button, Badge, FormField, Input, Select, Textarea } from '../../../../components/ui';
 
@@ -51,9 +52,9 @@ export default function HousekeepingPage() {
 
   async function load() {
     const [tRes, rRes, uRes] = await Promise.all([
-      fetch('/api/hotel/housekeeping', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/hotel/housekeeping', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } }),
+      apiFetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [t, r, u] = await Promise.all([tRes.json(), rRes.json(), uRes.json()]);
     setTasks(Array.isArray(t) ? t : []);
@@ -92,7 +93,7 @@ export default function HousekeepingPage() {
     setError(null); setSaving(true);
     const method = editing ? 'PATCH' : 'POST';
     const url = editing ? `/api/hotel/housekeeping/${editing.id}` : '/api/hotel/housekeeping';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomId, assignedToId: assignedToId || null, priority, status, notes, dueDate: dueDate || null }),
@@ -108,7 +109,7 @@ export default function HousekeepingPage() {
   }
 
   async function quickStatus(task: any, newStatus: string) {
-    await fetch(`/api/hotel/housekeeping/${task.id}`, {
+    await apiFetch(`/api/hotel/housekeeping/${task.id}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
@@ -126,7 +127,7 @@ export default function HousekeepingPage() {
   async function confirmDelete() {
     if (!taskToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/hotel/housekeeping/${taskToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/hotel/housekeeping/${taskToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setTasks(tasks.filter((t) => t.id !== taskToDelete.id));
     setTaskToDelete(null); setIsDeleting(false);
   }

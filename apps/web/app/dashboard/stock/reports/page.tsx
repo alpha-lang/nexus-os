@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../../lib/api';
 
 type Tab = 'rotation' | 'abc' | 'prices';
 
@@ -23,9 +24,9 @@ export default function ReportsPage() {
   async function load() {
     setLoading(true);
     const [r, a, p] = await Promise.all([
-      fetch(`/api/stock/reports/rotation?days=${days}`, { headers: { Authorization: `Bearer ${token}` } }).then(x => x.json()),
-      fetch(`/api/stock/reports/abc?days=${days}`, { headers: { Authorization: `Bearer ${token}` } }).then(x => x.json()),
-      fetch('/api/stock/reports/price-history', { headers: { Authorization: `Bearer ${token}` } }).then(x => x.json()),
+      apiFetch(`/api/stock/reports/rotation?days=${days}`, { headers: { Authorization: `Bearer ${token}` } }).then(x => x.json()),
+      apiFetch(`/api/stock/reports/abc?days=${days}`, { headers: { Authorization: `Bearer ${token}` } }).then(x => x.json()),
+      apiFetch('/api/stock/reports/price-history', { headers: { Authorization: `Bearer ${token}` } }).then(x => x.json()),
     ]);
     setRotation(Array.isArray(r) ? r : []);
     setAbc(Array.isArray(a) ? a : []);

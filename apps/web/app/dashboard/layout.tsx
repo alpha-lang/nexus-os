@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch, logout as apiLogout } from '../../lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 import CommandPalette from '../../components/CommandPalette';
 
@@ -25,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { router.push('/login'); return; }
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.json())
       .then((data) => {
         setUser(data);
@@ -266,9 +267,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const initial = user?.name?.charAt(0).toUpperCase() || 'U';
 
-  function logout() {
-    ['token', 'role', 'isOwner', 'orgType', 'orgName'].forEach((k) => localStorage.removeItem(k));
-    router.push('/login');
+  async function logout() {
+    // Révoque le refresh côté serveur puis redirige
+    await apiLogout();
   }
 
   function openCommandPalette() {

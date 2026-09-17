@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { usePagination } from '../../../../lib/usePagination';
 import { Pagination } from '../../../../lib/Pagination';
 
@@ -38,9 +39,9 @@ export default function PrixPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/pos/menu', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/hotel/room-types', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/pos/menu', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/hotel/room-types', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ])
       .then(([m, r, rt]) => {
         setMenu(Array.isArray(m) ? m : []);

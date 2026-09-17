@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 
 type StatusFilter = 'ALL' | 'PAID' | 'PENDING';
@@ -34,7 +35,7 @@ export default function BillingPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
-    const res = await fetch('/api/billing', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch('/api/billing', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setPayments(Array.isArray(data) ? data : []);
   }
@@ -45,7 +46,7 @@ export default function BillingPage() {
 
   async function markAsPaid(id: string) {
     setBusy(id);
-    await fetch(`/api/billing/mark-paid/${id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/billing/mark-paid/${id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
     setBusy(null);
     showToast('Facture marquee payee');
     await load();
@@ -54,7 +55,7 @@ export default function BillingPage() {
   async function confirmDelete() {
     if (!paymentToDelete) return;
     setIsDeleting(true);
-    await fetch(`/api/billing/${paymentToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/billing/${paymentToDelete.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setPaymentToDelete(null);
     setIsDeleting(false);
     showToast('Facture supprimee');

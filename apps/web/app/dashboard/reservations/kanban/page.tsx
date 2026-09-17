@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '../../../../lib/api';
 import { Badge } from '../../../../components/ui';
 import KanbanBoard, { KanbanColumn, KanbanItem } from '../../../../components/kanban/KanbanBoard';
 
@@ -58,7 +59,7 @@ export default function ReservationsKanbanPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
-    const res = await fetch('/api/hotel/reservations', {
+    const res = await apiFetch('/api/hotel/reservations', {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();
@@ -142,17 +143,17 @@ export default function ReservationsKanbanPage() {
     if (!item) return;
 
     if (newColumnId === 'CHECKED_IN' && item.columnId !== 'CHECKED_IN') {
-      await fetch(`/api/hotel/reservations/${itemId}/check-in`, {
+      await apiFetch(`/api/hotel/reservations/${itemId}/check-in`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
       });
     } else if (newColumnId === 'CHECKED_OUT' && item.columnId !== 'CHECKED_OUT') {
-      await fetch(`/api/hotel/reservations/${itemId}/check-out`, {
+      await apiFetch(`/api/hotel/reservations/${itemId}/check-out`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
       });
     } else {
-      await fetch(`/api/hotel/reservations/${itemId}`, {
+      await apiFetch(`/api/hotel/reservations/${itemId}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newColumnId }),
