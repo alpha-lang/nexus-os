@@ -93,6 +93,9 @@ export default function SubscriptionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [manageModal, setManageModal] = useState<any>(null); // subscription en cours de gestion
+  const [allModules, setAllModules] = useState<any[]>([]);
+  const [managing, setManaging] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [sort, setSort] = useState<'recent' | 'name' | 'mrr'>('recent');
@@ -207,6 +210,32 @@ export default function SubscriptionsPage() {
   }, [subscriptions, statusFilter, search, sort]);
 
   const pag = usePagination(filtered, { perPageDefault: 6 });
+
+  async function openManage(sub: any) {
+    // Récupère tous les modules du catalogue
+    const res = await apiFetch('/api/modules', { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    const mods = Array.isArray(data) ? data : (data.items || []);
+    setAllModules(mods);
+    setManageModal(sub);
+  }
+
+  async function toggleModuleForSub(subId: string, modId: string, currentlyActive: boolean) {
+    setManaging(true);
+    const action = currentlyActive ? 'deactivate-module' : 'activate-module';
+    await apiFetch(`/api/subscriptions/${subId}/${action}/${modId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setManaging(false);
+    // Recharge la sub
+    const res = await apiFetch('/api/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    const subs = Array.isArray(data) ? data : (data.items || []);
+    const updated = subs.find((s: any) => s.id === subId);
+    if (updated) setManageModal(updated);
+    await load();
+  }
 
   if (loading) {
     return (
@@ -410,6 +439,19 @@ export default function SubscriptionsPage() {
                 </div>
 
                 {/* Actions */}
+                {/* Bandeau modules : bouton gérer */}
+                <div className="px-4 pb-3">
+                  <button
+                    onClick={() => openManage(sub)}
+                    className="w-full py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition flex items-center justify-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Rattacher / retirer des modules
+                  </button>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 p-4 border-t border-slate-100 bg-slate-50/50">
                   {(sub.status === 'TRIAL' || sub.status === 'SUSPENDED' || sub.status === 'EXPIRED') && (
                     <button
@@ -552,6 +594,83 @@ export default function SubscriptionsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* ═══════════════════════════════════════════════
+          MODALE : GÉRER LES MODULES D'UN ABONNEMENT
+          ═══════════════════════════════════════════════ */}
+      {manageModal && (
+        <Modal
+          open={!!manageModal}
+          onClose={() => setManageModal(null)}
+          title={'Modules de ' + (manageModal.organization?.name || '')}
+          subtitle="Cochez pour rattacher, décochez pour retirer"
+          icon={<span className="text-2xl">🧩</span>}
+          size="lg"
+          footer={
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={() => setManageModal(null)}>Fermer</Button>
+            </div>
+          }
+        >
+          <div className="space-y-2">
+            {allModules.length === 0 ? (
+              <p className="text-center text-slate-400 py-8 text-sm">Aucun module au catalogue</p>
+            ) : (
+              allModules.map((m) => {
+                const current = manageModal.activeModules?.find((am) => am.moduleId === m.id);
+                const isActive = current?.isActive === true;
+                const hasLink = !!current;
+
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    disabled={managing}
+                    onClick={() => toggleModuleForSub(manageModal.id, m.id, isActive)}
+                    className={
+                      'w-full flex items-center gap-3 p-3 rounded-xl border-2 transition text-left disabled:opacity-50 ' +
+                      (isActive
+                        ? 'border-emerald-400 bg-emerald-50 hover:bg-emerald-100'
+                        : hasLink
+                        ? 'border-slate-300 bg-slate-50 hover:bg-slate-100'
+                        : 'border-slate-200 bg-white hover:border-teal-400 hover:bg-teal-50')
+                    }
+                  >
+                    <div className={'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ' + (isActive ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500')}>
+                      {isActive ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-bold text-slate-900 text-sm">{m.name}</span>
+                        {!hasLink && (
+                          <span className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700">
+                            NOUVEAU
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-mono truncate">{m.route || '-'}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-black text-slate-900 text-sm tabular-nums">
+                        {m.price > 0 ? m.price.toLocaleString('fr-FR') : 'Gratuit'}
+                      </p>
+                      {m.price > 0 && <p className="text-[9px] text-slate-400">Ar / mois</p>}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

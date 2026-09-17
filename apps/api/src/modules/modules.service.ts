@@ -74,7 +74,11 @@ export class ModulesService {
       where: {
         status: 'ACTIVE',
         ...(orgType
-          ? { OR: [{ types: { contains: orgType } }, { types: null }] }
+          ? { OR: [
+              { types: { contains: orgType } },
+              { types: null },
+              { types: '' },
+            ] }
           : {}),
       },
       orderBy: { name: 'asc' },
@@ -93,7 +97,9 @@ export class ModulesService {
     }
 
     const organizationId = await this.resolveInternalOrganizationId(user);
-    const typesCSV = Array.isArray(data.types) ? data.types.join(',') : (data.types || null);
+    const typesCSV = Array.isArray(data.types)
+      ? (data.types.length > 0 ? data.types.join(',') : null)
+      : (data.types || null);
     const pricing = data.pricing && typeof data.pricing === 'object' ? data.pricing : null;
     const fallbackPrice = pricing?.DEFAULT != null ? Number(pricing.DEFAULT) : (data.price || 0);
 
@@ -116,7 +122,9 @@ export class ModulesService {
     if (!user.isOwner || user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Seul le Super Admin Owner peut modifier un module.');
     }
-    const typesCSV = Array.isArray(data.types) ? data.types.join(',') : (data.types ?? undefined);
+    const typesCSV = Array.isArray(data.types)
+      ? (data.types.length > 0 ? data.types.join(',') : null)
+      : (data.types ?? undefined);
     const pricing = data.pricing && typeof data.pricing === 'object' ? data.pricing : undefined;
     const fallbackPrice = pricing?.DEFAULT != null ? Number(pricing.DEFAULT) : data.price;
 
