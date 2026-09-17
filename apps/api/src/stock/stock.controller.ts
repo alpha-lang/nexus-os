@@ -63,7 +63,19 @@ export class StockController {
   @Delete('movements/:id') removeMovement(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeMovement(u, id); }
 
   // TRANSFERS
-  @Post('transfers') transfer(@CurrentUser() u: any, @Body() b: any) { return this.service.transferBetweenWarehouses(u, b); }
+  @Post('transfers')
+  transfer(@CurrentUser() u: any, @Body() b: any) {
+    return this.service.transferBetweenWarehouses(u, b);
+  }
+
+  @Get('transfers/history')
+  transfersHistory(
+    @CurrentUser() u: any,
+    @Query('cursor') cursor?: string,
+    @Query('take') take?: string,
+  ) {
+    return this.service.getTransfersHistory(u, { cursor, take });
+  }
 
   // RECIPES
   @Get('recipes') recipes(@CurrentUser() u: any) { return this.service.findAllRecipes(u); }

@@ -661,6 +661,62 @@ export class StockService {
   // ═══════════════════════════════════════════════════════
   //  TRANSFERS
   // ═══════════════════════════════════════════════════════
+  /**
+   * Historique des transferts entre magasins (agrégé par référence).
+   */
+  async getTransfersHistory(user: any, filters: any = {}) {
+    const orgId = await this.getOrganizationId(user);
+
+    // Un transfert = 2 mouvements (TRANSFER_OUT + TRANSFER_IN) partageant la même référence
+    // On récupère tous les TRANSFER_OUT puis on groupe
+    const outs = await this.prisma.stockMovement.findMany({
+      where: { organizationId: orgId, type: 'TRANSFER_OUT' },
+      include: {
+        item: { select: { id: true, name: true, unit: true, sku: true } },
+        warehouse: { select: { id: true, name: true, code: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: filters.take ? parseInt(filters.take, 10) : 50,
+    });
+
+    // Pour chaque OUT, on cherche le IN correspondant (même item, même timestamp proche)
+    const results = await Promise.all(
+      outs.map(async (out) => {
+        const inMvt = await this.prisma.stockMovement.findFirst({
+          where: {
+            organizationId: orgId,
+            itemId: out.itemId,
+            type: 'TRANSFER_IN',
+            quantity: Math.abs(out.quantity),
+            createdAt: {
+              gte: new Date(out.createdAt.getTime() - 10000),
+              lte: new Date(out.createdAt.getTime() + 10000),
+            },
+            warehouseId: { not: out.warehouseId },
+          },
+          include: {
+            warehouse: { select: { id: true, name: true, code: true } },
+          },
+        });
+
+        return {
+          id: out.id,
+          item: out.item,
+          fromWarehouse: out.warehouse,
+          toWarehouse: inMvt?.warehouse || null,
+          quantity: Math.abs(out.quantity),
+          unitCost: out.unitCost,
+          reason: out.reason,
+          user: out.user,
+          date: out.createdAt,
+        };
+      }),
+    );
+
+    return { items: results, count: results.length, hasMore: outs.length === (filters.take ? parseInt(filters.take, 10) : 50) };
+  }
+
   async transferBetweenWarehouses(user: any, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Acces refuse');
     const orgId = await this.getOrganizationId(user);
