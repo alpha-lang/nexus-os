@@ -113,7 +113,7 @@ export default function CommandPalette() {
         type: 'customer',
         label: `${c.firstName} ${c.lastName}`,
         sub: c.email || c.phone || c.city || '',
-        href: `/dashboard/clients/${c.id}`,
+        href: `/dashboard/crm/${c.id}`,
       })),
       ...(results.reservations || []).map((r: any) => ({
         type: 'reservation',
@@ -217,7 +217,7 @@ export default function CommandPalette() {
                     return (
                       <button
                         key={c.id}
-                        onClick={() => navigate({ href: `/dashboard/clients/${c.id}` })}
+                        onClick={() => navigate({ href: `/dashboard/crm/${c.id}` })}
                         onMouseEnter={() => setSelectedIndex(idx)}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition ${
                           selectedIndex === idx ? 'bg-teal-50' : 'hover:bg-slate-50'
