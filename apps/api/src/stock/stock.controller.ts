@@ -101,5 +101,18 @@ export class StockController {
   }
 
   // INVENTORY
-  @Post('inventory/submit') submitInventory(@CurrentUser() u: any, @Body() b: any) { return this.service.submitInventory(u, b); }
+  @Post('inventory/submit')
+  submitInventory(@CurrentUser() u: any, @Body() b: any) {
+    return this.service.submitInventory(u, b);
+  }
+
+  @Get('inventory/history')
+  inventoryHistory(@CurrentUser() u: any, @Query() q: any) {
+    return this.service.getInventoryHistory(u, q);
+  }
+
+  @Get('inventory/detail/:reference')
+  inventoryDetail(@CurrentUser() u: any, @Param('reference') reference: string) {
+    return this.service.getInventoryDetail(u, reference);
+  }
 }

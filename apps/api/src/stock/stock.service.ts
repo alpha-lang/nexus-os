@@ -1139,11 +1139,164 @@ export class StockService {
     }).sort((a, b) => Math.abs(b.variationPct) - Math.abs(a.variationPct));
   }
 
+  /**
+   * Historique des inventaires groupés par référence.
+   */
+  async getInventoryHistory(user: any, filters: any = {}) {
+    const orgId = await this.getOrganizationId(user);
+
+    const where: any = {
+      organizationId: orgId,
+      type: 'INVENTORY',
+    };
+    if (filters.warehouseId) where.warehouseId = filters.warehouseId;
+    if (filters.from || filters.to) {
+      where.createdAt = {};
+      if (filters.from) where.createdAt.gte = new Date(filters.from);
+      if (filters.to) where.createdAt.lte = new Date(filters.to);
+    }
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where,
+      include: {
+        item: { select: { id: true, name: true, sku: true, unit: true, costPrice: true } },
+        warehouse: { select: { id: true, name: true, code: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+
+    // Groupe par référence
+    const groups: Record<string, any> = {};
+    for (const m of movements) {
+      const ref = m.reference || 'SANS-REF';
+      if (!groups[ref]) {
+        groups[ref] = {
+          reference: ref,
+          warehouse: m.warehouse,
+          user: m.user,
+          date: m.createdAt,
+          lines: [],
+          totalGainValue: 0,
+          totalLossValue: 0,
+          totalGainQty: 0,
+          totalLossQty: 0,
+          itemsCount: 0,
+        };
+      }
+      const g = groups[ref];
+      const value = Math.abs(m.quantity) * (m.unitCost || m.item.costPrice || 0);
+      if (m.quantity > 0) {
+        g.totalGainValue += value;
+        g.totalGainQty += m.quantity;
+      } else {
+        g.totalLossValue += value;
+        g.totalLossQty += Math.abs(m.quantity);
+      }
+      g.itemsCount++;
+      g.lines.push({
+        itemName: m.item.name,
+        sku: m.item.sku,
+        unit: m.item.unit,
+        quantity: m.quantity,
+        value,
+      });
+    }
+
+    const result = Object.values(groups)
+      .map((g: any) => ({
+        ...g,
+        totalGainValue: Math.round(g.totalGainValue),
+        totalLossValue: Math.round(g.totalLossValue),
+        netValue: Math.round(g.totalGainValue - g.totalLossValue),
+        netQty: Math.round((g.totalGainQty - g.totalLossQty) * 100) / 100,
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const summary = {
+      totalSessions: result.length,
+      totalLossValue: result.reduce((s, r) => s + r.totalLossValue, 0),
+      totalGainValue: result.reduce((s, r) => s + r.totalGainValue, 0),
+      lastInventoryDate: result[0]?.date || null,
+    };
+
+    return { summary, sessions: result };
+  }
+
+  /**
+   * Détail complet d'un inventaire (par référence).
+   */
+  async getInventoryDetail(user: any, reference: string) {
+    const orgId = await this.getOrganizationId(user);
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where: {
+        organizationId: orgId,
+        type: 'INVENTORY',
+        reference,
+      },
+      include: {
+        item: { select: { id: true, name: true, sku: true, unit: true, costPrice: true, minStock: true } },
+        warehouse: { select: { id: true, name: true, code: true, location: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { item: { name: 'asc' } },
+    });
+
+    if (movements.length === 0) throw new NotFoundException('Inventaire introuvable');
+
+    const first = movements[0];
+
+    const lines = movements.map((m) => ({
+      itemId: m.item.id,
+      name: m.item.name,
+      sku: m.item.sku,
+      unit: m.item.unit,
+      quantity: m.quantity,
+      unitCost: m.unitCost || m.item.costPrice || 0,
+      value: Math.round(Math.abs(m.quantity) * (m.unitCost || m.item.costPrice || 0)),
+      isLoss: m.quantity < 0,
+    }));
+
+    const losses = lines.filter((l) => l.isLoss);
+    const gains = lines.filter((l) => !l.isLoss);
+
+    return {
+      reference,
+      date: first.createdAt,
+      warehouse: first.warehouse,
+      user: first.user,
+      reason: first.reason,
+      lines,
+      summary: {
+        itemsCount: lines.length,
+        lossesCount: losses.length,
+        gainsCount: gains.length,
+        totalLossValue: losses.reduce((s, l) => s + l.value, 0),
+        totalGainValue: gains.reduce((s, l) => s + l.value, 0),
+        totalLossQty: losses.reduce((s, l) => s + Math.abs(l.quantity), 0),
+        totalGainQty: gains.reduce((s, l) => s + l.quantity, 0),
+      },
+    };
+  }
+
   async submitInventory(user: any, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Acces refuse');
     const orgId = await this.getOrganizationId(user);
     const warehouseId = data.warehouseId;
     if (!warehouseId) throw new BadRequestException('Magasin requis');
+
+    // Référence de session : fournie par le front ou générée
+    let reference = data.reference;
+    if (!reference) {
+      const year = new Date().getFullYear();
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
+      const count = await this.prisma.stockMovement.count({
+        where: { organizationId: orgId, type: 'INVENTORY' },
+      });
+      reference = `INV-${year}-${month}-${String(count + 1).padStart(3, '0')}`;
+    }
 
     const counts = data.counts || [];
     const adjustments = [];
@@ -1172,6 +1325,7 @@ export class StockService {
             quantity: diff,
             unitCost: item.costPrice,
             reason: data.reason || 'Ajustement inventaire',
+            reference,
             userId: user.userId || user.id,
             organizationId: orgId,
           },
@@ -1196,6 +1350,6 @@ export class StockService {
       });
     }
 
-    return { adjustments, count: adjustments.length };
+    return { reference, adjustments, count: adjustments.length };
   }
 }
