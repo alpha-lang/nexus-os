@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import CashStatusBanner from '../../../components/CashStatusBanner';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, unwrap } from '../../../lib/api';
 import type { ReactNode } from 'react';
 import { usePagination } from '../../../lib/usePagination';
 import { Pagination } from '../../../lib/Pagination';
@@ -120,12 +120,12 @@ export default function CaissePage() {
       apiFetch('/api/pos/folios', { headers }).then(r => r.json()),
       apiFetch('/api/pos/credits', { headers }).then(r => r.json()),
     ]);
-    setMenu(Array.isArray(m) ? m : []);
-    setTables(Array.isArray(t) ? t : []);
-    setActiveOrders(Array.isArray(o) ? o : []);
-    setHistoryOrders(Array.isArray(h) ? h : []);
+    setMenu(unwrap(m));
+    setTables(unwrap(t));
+    setActiveOrders(unwrap(o));
+    setHistoryOrders(unwrap(h));
     setStats(st);
-    setRoomReservations(Array.isArray(r) ? r : []);
+    setRoomReservations(unwrap(r));
     setFoliosCount(Array.isArray(foliosRes) ? foliosRes.length : 0);
     setCreditsCount(Array.isArray(creditsRes) ? creditsRes.length : 0);
   }

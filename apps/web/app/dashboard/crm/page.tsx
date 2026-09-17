@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, unwrap } from '../../../lib/api';
 import { usePagination } from '../../../lib/usePagination';
 import { Modal, Button, FormField, Input, Select, Textarea } from '../../../components/ui';
 import { Pagination } from '../../../lib/Pagination';
@@ -46,7 +46,7 @@ export default function CrmPage() {
   async function load() {
     const res = await apiFetch('/api/partners', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
-    setPartners(Array.isArray(data) ? data : []);
+    setPartners(unwrap(data));
   }
 
   useEffect(() => { load().catch(console.error).finally(() => setLoading(false)); }, []);

@@ -1,18 +1,18 @@
 import {
-  IsOptional, IsIn, IsDateString,
+  IsOptional, IsIn, ValidateIf, IsDateString,
 } from 'class-validator';
-import { SUB_STATUSES, BILLING_PERIODS, SubStatus, BillingPeriod } from './create-subscription.dto';
 
 export class UpdateSubscriptionDto {
   @IsOptional()
-  @IsIn([...SUB_STATUSES])
-  status?: SubStatus;
+  @IsIn(['TRIAL', 'ACTIVE', 'SUSPENDED', 'EXPIRED'])
+  status?: string;
 
   @IsOptional()
-  @IsIn([...BILLING_PERIODS])
-  billingPeriod?: BillingPeriod;
+  @IsIn(['MONTHLY', 'QUARTERLY', 'ANNUAL'])
+  billingPeriod?: string;
 
   @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined && v !== '')
   @IsDateString()
-  endDate?: string;
+  endDate?: string | null;
 }

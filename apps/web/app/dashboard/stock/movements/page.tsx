@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { apiFetch } from '../../../../lib/api';
+import { apiFetch, unwrap } from '../../../../lib/api';
 import { useSearchParams } from 'next/navigation';
 import { usePagination } from '../../../../lib/usePagination';
 import { Pagination } from '../../../../lib/Pagination';
@@ -67,8 +67,8 @@ export default function MovementsPage() {
       apiFetch('/api/stock/movements', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
       apiFetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     ]);
-    setMovements(Array.isArray(mvtRes) ? mvtRes : []);
-    setWarehouses(Array.isArray(whRes) ? whRes : []);
+    setMovements(unwrap(mvtRes));
+    setWarehouses(unwrap(whRes));
   }
 
   useEffect(() => { load().catch(console.error).finally(() => setLoading(false)); }, []);

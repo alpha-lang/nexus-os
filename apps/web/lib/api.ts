@@ -141,3 +141,16 @@ export async function logout(): Promise<void> {
     window.location.href = '/login';
   }
 }
+
+/**
+ * Déballe une réponse API qui peut être :
+ *   - un tableau brut (ancien format)
+ *   - { items: [...] } (nouveau format paginé)
+ *
+ * Permet une migration douce vers la pagination cursor-based.
+ */
+export function unwrap<T = any>(data: any): T[] {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
+}

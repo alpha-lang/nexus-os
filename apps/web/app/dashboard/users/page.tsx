@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, unwrap } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select } from '../../../components/ui';
 
@@ -69,8 +69,8 @@ export default function UsersPage() {
       apiFetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [u, o] = await Promise.all([uRes.json(), oRes.json()]);
-    setUsers(Array.isArray(u) ? u : []);
-    setOrganizations(Array.isArray(o) ? o : []);
+    setUsers(unwrap(u));
+    setOrganizations(unwrap(o));
   }
 
   useEffect(() => {

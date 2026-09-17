@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { paginate } from '../common/pagination/paginate';
 
 @Injectable()
 export class HotelService {
@@ -453,19 +454,22 @@ export class HotelService {
     return this.prisma.room.delete({ where: { id } });
   }
 
-  async findAllReservations(user: any, filters?: { status?: string; from?: string; to?: string }) {
+  async findAllReservations(user: any, filters: any = {}) {
     const orgId = await this.getOrganizationId(user);
     const where: any = { organizationId: orgId };
-    if (filters?.status) where.status = filters.status;
-    if (filters?.from || filters?.to) {
+    if (filters.status) where.status = filters.status;
+    if (filters.from || filters.to) {
       where.checkInDate = {};
       if (filters.from) where.checkInDate.gte = new Date(filters.from);
       if (filters.to) where.checkInDate.lte = new Date(filters.to);
     }
-    return this.prisma.reservation.findMany({
+
+    return paginate(this.prisma.reservation, {
       where,
-      include: { customer: true, room: { include: { roomType: true } } },
       orderBy: { checkInDate: 'desc' },
+      take: filters.take ? parseInt(filters.take, 10) : 30,
+      cursor: filters.cursor,
+      include: { customer: true, room: { include: { roomType: true } } },
     });
   }
 

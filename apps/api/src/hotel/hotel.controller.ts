@@ -44,8 +44,15 @@ export class HotelController {
 
   // RESERVATIONS
   @Get('reservations')
-  reservations(@CurrentUser() u: any, @Query('status') s?: string, @Query('from') f?: string, @Query('to') t?: string) {
-    return this.service.findAllReservations(u, { status: s, from: f, to: t });
+  reservations(
+    @CurrentUser() u: any,
+    @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('cursor') cursor?: string,
+    @Query('take') take?: string,
+  ) {
+    return this.service.findAllReservations(u, { status, from, to, cursor, take });
   }
   @Get('reservations/:id') reservation(@CurrentUser() u: any, @Param('id') id: string) { return this.service.findOneReservation(u, id); }
   @Post('reservations') createReservation(@CurrentUser() u: any, @Body() b: any) { return this.service.createReservation(u, b); }

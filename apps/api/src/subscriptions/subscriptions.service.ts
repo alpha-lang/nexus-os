@@ -63,7 +63,11 @@ export class SubscriptionsService {
     }
 
     const billingPeriod = data.billingPeriod || 'MONTHLY';
-    const endDate = data.endDate ? new Date(data.endDate) : null;
+    // endDate : accepte "", null, undefined → null côté DB
+    const endDate =
+      data.endDate && String(data.endDate).trim() !== ''
+        ? new Date(data.endDate)
+        : null;
     const status = data.status || 'TRIAL';
 
     let subscription;
@@ -161,7 +165,10 @@ export class SubscriptionsService {
       where: { id },
       data: {
         status: data.status ?? undefined,
-        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        endDate:
+          data.endDate && String(data.endDate).trim() !== ''
+            ? new Date(data.endDate)
+            : undefined,
         billingPeriod: data.billingPeriod ?? undefined,
       },
     });

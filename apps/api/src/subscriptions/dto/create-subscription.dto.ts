@@ -1,11 +1,10 @@
 import {
-  IsString, IsOptional, IsArray, IsIn, IsNumber, IsDateString, Min,
+  IsString, IsOptional, IsArray, IsIn, IsNumber, Min,
+  ValidateIf, IsDateString,
 } from 'class-validator';
 
 export const SUB_STATUSES = ['TRIAL', 'ACTIVE', 'SUSPENDED', 'EXPIRED'] as const;
 export const BILLING_PERIODS = ['MONTHLY', 'QUARTERLY', 'ANNUAL'] as const;
-export type SubStatus = (typeof SUB_STATUSES)[number];
-export type BillingPeriod = (typeof BILLING_PERIODS)[number];
 
 export class CreateSubscriptionDto {
   @IsString()
@@ -13,15 +12,16 @@ export class CreateSubscriptionDto {
 
   @IsOptional()
   @IsIn([...SUB_STATUSES])
-  status?: SubStatus;
+  status?: string;
 
   @IsOptional()
   @IsIn([...BILLING_PERIODS])
-  billingPeriod?: BillingPeriod;
+  billingPeriod?: string;
 
   @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined && v !== '')
   @IsDateString()
-  endDate?: string;
+  endDate?: string | null;
 
   @IsOptional()
   @IsArray()

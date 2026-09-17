@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import CashStatusBanner from '../../../components/CashStatusBanner';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, unwrap } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, Badge, PageHeader, FormField, Input, Select, Textarea } from '../../../components/ui';
 import { usePagination } from '../../../lib/usePagination';
@@ -79,9 +79,9 @@ export default function ReservationsPage() {
       apiFetch('/api/partners?type=CUSTOMER', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [r, room, cust] = await Promise.all([rRes.json(), roomRes.json(), custRes.json()]);
-    setReservations(Array.isArray(r) ? r : []);
-    setRooms(Array.isArray(room) ? room : []);
-    setCustomers(Array.isArray(cust) ? cust : []);
+    setReservations(unwrap(r));
+    setRooms(unwrap(room));
+    setCustomers(unwrap(cust));
   }
 
   useEffect(() => {

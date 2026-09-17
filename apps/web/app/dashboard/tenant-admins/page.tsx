@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, unwrap } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select } from '../../../components/ui';
 
@@ -37,9 +37,9 @@ export default function TenantAdminsPage() {
       apiFetch('/api/organizations', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [u, o] = await Promise.all([uRes.json(), oRes.json()]);
-    const allUsers = Array.isArray(u) ? u : [];
+    const allUsers = unwrap(u);
     setAdmins(allUsers.filter((x: any) => x.role === 'ADMIN' || x.role === 'SUPER_ADMIN'));
-    setOrganizations(Array.isArray(o) ? o : []);
+    setOrganizations(unwrap(o));
   }
 
   useEffect(() => { load().catch(console.error).finally(() => setLoading(false)); }, []);
