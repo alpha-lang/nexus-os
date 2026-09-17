@@ -24,7 +24,15 @@ export class PosController {
   @Delete('tables/:id') tableRemove(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeTable(u, id); }
 
   // ORDERS
-  @Get('orders') orders(@CurrentUser() u: any, @Query('status') s?: string) { return this.service.findAllOrders(u, s); }
+  @Get('orders')
+  orders(
+    @CurrentUser() u: any,
+    @Query('status') status?: string,
+    @Query('cursor') cursor?: string,
+    @Query('take') take?: string,
+  ) {
+    return this.service.findAllOrders(u, { status, cursor, take });
+  }
   @Get('orders/active') activeOrders(@CurrentUser() u: any) { return this.service.findActiveOrders(u); }
   @Get('orders/:id') order(@CurrentUser() u: any, @Param('id') id: string) { return this.service.findOneOrder(u, id); }
   @Post('orders') createOrder(@CurrentUser() u: any, @Body() b: any) { return this.service.createOrder(u, b); }

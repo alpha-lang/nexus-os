@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { paginate } from '../common/pagination/paginate';
 
 @Injectable()
 export class PosService {
@@ -191,21 +192,25 @@ export class PosService {
   }
 
   /** Toutes les commandes (historique) */
-  async findAllOrders(user: any, status?: string) {
+  async findAllOrders(user: any, filters: any = {}) {
     const orgId = await this.getOrganizationId(user);
-    return this.prisma.restaurantOrder.findMany({
-      where: { organizationId: orgId, ...(status ? { status } : {}) },
+    const where: any = { organizationId: orgId };
+    if (filters.status) where.status = filters.status;
+
+    return paginate(this.prisma.restaurantOrder, {
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: filters.take ? parseInt(filters.take, 10) : 30,
+      cursor: filters.cursor,
       include: {
         items: { include: { menuItem: true } },
         table: true,
         reservation: { include: { customer: true, room: true } },
         payments: { orderBy: { createdAt: 'desc' } },
       },
-      orderBy: { createdAt: 'desc' }, take: 100,
     });
   }
 
-  /** Détail d'une commande */
   async findOneOrder(user: any, id: string) {
     const orgId = await this.getOrganizationId(user);
     const order = await this.prisma.restaurantOrder.findFirst({

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { paginate } from '../common/pagination/paginate';
 import { Role } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -35,18 +36,37 @@ export class UsersService {
     return org?.type === 'INTERNE';
   }
 
-  async findAll(user: any) {
+  async findAll(user: any, filters: any = {}) {
     const internal = await this.isInternal(user);
-    if (internal) {
-      return this.prisma.user.findMany({
-        include: { organization: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'desc' },
-      });
+    const where: any = {};
+    if (!internal) where.organizationId = user.organizationId;
+    if (filters.role) where.role = filters.role;
+    if (filters.search) {
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { email: { contains: filters.search, mode: 'insensitive' } },
+      ];
     }
-    return this.prisma.user.findMany({
-      where: { organizationId: user.organizationId },
-      include: { organization: { select: { id: true, name: true } } },
+
+    return paginate(this.prisma.user, {
+      where,
       orderBy: { createdAt: 'desc' },
+      take: filters.take ? parseInt(filters.take, 10) : 30,
+      cursor: filters.cursor,
+      // ⚠️ JAMAIS retourner le hash password au client
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        organizationId: true,
+        branchId: true,
+        isActive: true,
+        isOwner: true,
+        createdAt: true,
+        updatedAt: true,
+        organization: { select: { id: true, name: true } },
+      },
     });
   }
 
@@ -57,7 +77,19 @@ export class UsersService {
     }
     const found = await this.prisma.user.findFirst({
       where,
-      include: { organization: { select: { id: true, name: true } } },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        organizationId: true,
+        branchId: true,
+        isActive: true,
+        isOwner: true,
+        createdAt: true,
+        updatedAt: true,
+        organization: { select: { id: true, name: true } },
+      },
     });
     if (!found) throw new NotFoundException('Utilisateur introuvable');
     return found;
@@ -84,7 +116,19 @@ export class UsersService {
         organizationId,
         branchId: dto.branchId || null,
       },
-      include: { organization: { select: { id: true, name: true } } },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        organizationId: true,
+        branchId: true,
+        isActive: true,
+        isOwner: true,
+        createdAt: true,
+        updatedAt: true,
+        organization: { select: { id: true, name: true } },
+      },
     });
   }
 
@@ -111,7 +155,19 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id },
       data,
-      include: { organization: { select: { id: true, name: true } } },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        organizationId: true,
+        branchId: true,
+        isActive: true,
+        isOwner: true,
+        createdAt: true,
+        updatedAt: true,
+        organization: { select: { id: true, name: true } },
+      },
     });
   }
 

@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -13,8 +13,14 @@ export class UsersController {
   constructor(private readonly service: UsersService) {}
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.service.findAll(req.user);
+  findAll(
+    @Req() req: any,
+    @Query('cursor') cursor?: string,
+    @Query('take') take?: string,
+    @Query('search') search?: string,
+    @Query('role') role?: string,
+  ) {
+    return this.service.findAll(req.user, { cursor, take, search, role });
   }
 
   @Get(':id')
