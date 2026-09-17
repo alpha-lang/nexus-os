@@ -6,6 +6,7 @@ import { apiFetch } from '../../../../lib/api';
 export default function InventoryPage() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [warehouseId, setWarehouseId] = useState('');
   const [counts, setCounts] = useState<Record<string, string>>({});
@@ -16,17 +17,50 @@ export default function InventoryPage() {
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
-  async function load() {
-    const [wh, it] = await Promise.all([
-      apiFetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      apiFetch('/api/stock/items', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-    ]);
-    setWarehouses(Array.isArray(wh) ? wh : []);
-    setItems(Array.isArray(it) ? it : []);
-    if (wh.length > 0 && !warehouseId) setWarehouseId(wh[0].id);
+  // Charge les magasins (une seule fois)
+  async function loadWarehouses() {
+    const wh = await apiFetch('/api/stock/warehouses', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+    const list = Array.isArray(wh) ? wh : (wh.items || []);
+    setWarehouses(list);
+    if (list.length > 0 && !warehouseId) setWarehouseId(list[0].id);
+    return list;
   }
 
-  useEffect(() => { load().catch(console.error).finally(() => setLoading(false)); }, []);
+  // Charge les articles D'UN magasin spécifique (quantité locale)
+  async function loadItemsForWarehouse(whId: string) {
+    if (!whId) { setItems([]); return; }
+    setItemsLoading(true);
+    const res = await apiFetch(`/api/stock/warehouses/${whId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) { setItems([]); setItemsLoading(false); return; }
+    const detail = await res.json();
+    // On garde uniquement les articles présents dans CE magasin (quantity > 0 ou théorique non-null)
+    const mapped = (detail.items || []).map((it: any) => ({
+      id: it.id,
+      name: it.name,
+      sku: it.sku,
+      unit: it.unit,
+      category: it.category,
+      // ⚠️ Stock théorique = stock dans CE magasin
+      currentStock: it.quantity,
+      minStock: it.minStock,
+      maxStock: it.maxStock,
+    }));
+    setItems(mapped);
+    setItemsLoading(false);
+  }
+
+  useEffect(() => {
+    loadWarehouses()
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Recharger les articles quand le magasin change
+  useEffect(() => {
+    loadItemsForWarehouse(warehouseId).catch(console.error);
+  }, [warehouseId]);
 
   async function submit() {
     if (!warehouseId) return;
@@ -46,7 +80,8 @@ export default function InventoryPage() {
       const data = await res.json();
       setResult(data);
       setCounts({});
-      await load();
+      // Recharge uniquement le magasin courant
+      await loadItemsForWarehouse(warehouseId);
     }
   }
 
@@ -106,6 +141,15 @@ export default function InventoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="p-12 text-center text-slate-400">
+                    {itemsLoading ? 'Chargement…' : items.length === 0
+                      ? 'Aucun article dans ce magasin'
+                      : 'Aucun article ne correspond au filtre'}
+                  </td>
+                </tr>
+              )}
               {filtered.map(it => (
                 <tr key={it.id} className="hover:bg-slate-50">
                   <td className="p-3">
