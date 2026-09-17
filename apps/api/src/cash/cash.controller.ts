@@ -9,7 +9,15 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 export class CashController {
   constructor(private readonly service: CashService) {}
 
-  @Get('stats') stats(@CurrentUser() u: any) { return this.service.getGlobalStats(u); }
+  @Get('stats')
+  stats(@CurrentUser() u: any) {
+    return this.service.getGlobalStats(u);
+  }
+
+  @Get('overview')
+  overview(@CurrentUser() u: any) {
+    return this.service.getOverview(u);
+  }
 
   @Get('registers') registers(@CurrentUser() u: any) { return this.service.findAllRegisters(u); }
   @Post('registers') createRegister(@CurrentUser() u: any, @Body() b: any) { return this.service.createRegister(u, b); }

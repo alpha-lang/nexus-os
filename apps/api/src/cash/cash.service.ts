@@ -315,6 +315,198 @@ export class CashService {
     });
   }
 
+  /**
+   * Vue d'ensemble du module Caisse : KPIs, activité, alertes.
+   */
+  async getOverview(user: any) {
+    const orgId = await this.getOrganizationId(user);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
+
+    // ═══ CAISSES ═══
+    const registers = await this.prisma.cashRegister.findMany({
+      where: { organizationId: orgId },
+      include: { _count: { select: { sessions: true, movements: true } } },
+    });
+
+    const totalBalance = registers.reduce((s, r) => s + r.currentBalance, 0);
+    const openRegisters = registers.filter((r) => r.status === 'OPEN').length;
+
+    // ═══ SESSIONS OUVERTES ═══
+    const openSessions = await this.prisma.cashSession.findMany({
+      where: { organizationId: orgId, closedAt: null },
+      include: {
+        register: { select: { id: true, name: true, type: true } },
+        user: { select: { id: true, name: true, email: true } },
+        _count: { select: { movements: true, orderPayments: true } },
+      },
+      orderBy: { openedAt: 'desc' },
+    });
+
+    const activeSessions = await Promise.all(
+      openSessions.map(async (s) => {
+        const movements = await this.prisma.cashMovement.aggregate({
+          where: { sessionId: s.id },
+          _sum: { amount: true },
+        });
+        const movementsIn = await this.prisma.cashMovement.aggregate({
+          where: { sessionId: s.id, type: { in: ['SALE', 'IN', 'DEPOSIT', 'TRANSFER_IN'] } },
+          _sum: { amount: true },
+        });
+        const movementsOut = await this.prisma.cashMovement.aggregate({
+          where: { sessionId: s.id, type: { in: ['EXPENSE', 'OUT', 'WITHDRAWAL', 'TRANSFER_OUT'] } },
+          _sum: { amount: true },
+        });
+        return {
+          id: s.id,
+          register: s.register,
+          user: s.user,
+          openedAt: s.openedAt,
+          openingAmount: s.openingAmount,
+          movementsCount: s._count.movements,
+          paymentsCount: s._count.orderPayments,
+          inAmount: movementsIn._sum.amount || 0,
+          outAmount: movementsOut._sum.amount || 0,
+          currentBalance: s.openingAmount + (movementsIn._sum.amount || 0) - (movementsOut._sum.amount || 0),
+        };
+      }),
+    );
+
+    // ═══ MOUVEMENTS DU JOUR ═══
+    const todayMovements = await this.prisma.cashMovement.findMany({
+      where: { organizationId: orgId, createdAt: { gte: today } },
+      include: {
+        register: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const todayIn = todayMovements
+      .filter((m) => ['SALE', 'IN', 'DEPOSIT', 'TRANSFER_IN'].includes(m.type))
+      .reduce((s, m) => s + m.amount, 0);
+    const todayOut = todayMovements
+      .filter((m) => ['EXPENSE', 'OUT', 'WITHDRAWAL', 'TRANSFER_OUT'].includes(m.type))
+      .reduce((s, m) => s + m.amount, 0);
+
+    const todayByType: Record<string, number> = {};
+    todayMovements.forEach((m) => {
+      todayByType[m.type] = (todayByType[m.type] || 0) + m.amount;
+    });
+
+    // ═══ VENTES POS DU JOUR ═══
+    const posSalesToday = await this.prisma.orderPayment.aggregate({
+      where: {
+        order: { organizationId: orgId },
+        createdAt: { gte: today },
+      },
+      _sum: { amount: true },
+      _count: true,
+    });
+
+    const posSalesByMethod = await this.prisma.orderPayment.groupBy({
+      by: ['method'],
+      where: {
+        order: { organizationId: orgId },
+        createdAt: { gte: today },
+      },
+      _sum: { amount: true },
+      _count: true,
+    });
+
+    // ═══ CRÉDITS EN COURS ═══
+    const credits = await this.prisma.restaurantOrder.findMany({
+      where: {
+        organizationId: orgId,
+        paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+        status: { notIn: ['CANCELLED'] },
+        notes: { contains: 'CREDIT' },
+      },
+      select: { total: true, paidAmount: true },
+    });
+
+    const creditsTotal = credits.reduce((s, c) => s + c.total, 0);
+    const creditsPaid = credits.reduce((s, c) => s + c.paidAmount, 0);
+    const creditsRemaining = creditsTotal - creditsPaid;
+
+    // ═══ FOLIOS AVEC SOLDE ═══
+    const foliosWithBalance = await this.prisma.reservation.findMany({
+      where: {
+        organizationId: orgId,
+        status: 'CHECKED_IN',
+      },
+      include: {
+        customer: { select: { id: true, name: true } },
+        room: { select: { number: true } },
+      },
+    });
+
+    const foliosWithDebt = foliosWithBalance.filter((r) => r.totalAmount - r.paidAmount > 0);
+
+    // ═══ ACTIVITÉ RÉCENTE ═══
+    const recentMovements = todayMovements.slice(0, 5);
+    const recentPayments = await this.prisma.orderPayment.findMany({
+      where: { order: { organizationId: orgId } },
+      include: {
+        order: { select: { id: true, table: { select: { number: true } } } },
+        cashSession: { select: { id: true, register: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    // ═══ ALERTES ═══
+    const alerts: { type: string; label: string; count: number; href: string }[] = [];
+    if (registers.length === 0) {
+      alerts.push({ type: 'no_register', label: 'Aucune caisse créée', count: 0, href: '/dashboard/caisse/journal' });
+    }
+    if (registers.length > 0 && openRegisters === 0) {
+      alerts.push({ type: 'no_open', label: 'Aucune caisse ouverte', count: registers.length, href: '/dashboard/caisse/journal' });
+    }
+    if (creditsRemaining > 0) {
+      alerts.push({ type: 'credits', label: 'Crédits à recouvrer', count: credits.length, href: '/dashboard/caisse/credits' });
+    }
+    if (foliosWithDebt.length > 0) {
+      alerts.push({ type: 'folios', label: 'Folios clients à encaisser', count: foliosWithDebt.length, href: '/dashboard/caisse/folios' });
+    }
+
+    return {
+      kpis: {
+        totalRegisters: registers.length,
+        openRegisters,
+        totalBalance,
+        todayIn,
+        todayOut,
+        todayNet: todayIn - todayOut,
+        todayMovementsCount: todayMovements.length,
+      },
+      pos: {
+        salesToday: posSalesToday._sum.amount || 0,
+        ordersToday: posSalesToday._count || 0,
+        byMethod: posSalesByMethod.map((m) => ({
+          method: m.method,
+          amount: m._sum.amount || 0,
+          count: m._count,
+        })),
+      },
+      credits: {
+        total: creditsTotal,
+        paid: creditsPaid,
+        remaining: creditsRemaining,
+        count: credits.length,
+      },
+      folios: {
+        withDebt: foliosWithDebt.length,
+        totalDue: foliosWithDebt.reduce((s, r) => s + (r.totalAmount - r.paidAmount), 0),
+      },
+      activeSessions,
+      recentMovements,
+      recentPayments,
+      alerts,
+    };
+  }
+
   async getGlobalStats(user: any) {
     const orgId = await this.getOrganizationId(user);
 
