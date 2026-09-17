@@ -1,22 +1,37 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import express from 'express';
+
+const server = express();
+let bootstrapPromise: Promise<void> | null = null;
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log'],
-  });
+  if (bootstrapPromise) return bootstrapPromise;
 
-  app.enableCors({
-    origin: true,        // à restreindre plus tard à ton domaine front
-    credentials: true,
-  });
+  bootstrapPromise = (async () => {
+    const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+      logger: ['error', 'warn', 'log'],
+    });
+    app.enableCors({ origin: true, credentials: true });
+    await app.init();
+  })();
 
-  const port = process.env.PORT ?? 3001;
-  await app.listen(port, '0.0.0.0');
-  console.log(`🚀 NEXUS API démarrée sur le port ${port}`);
+  return bootstrapPromise;
 }
 
-bootstrap().catch((err) => {
-  console.error('❌ Erreur au démarrage:', err);
-  process.exit(1);
-});
+// ✅ Export par défaut pour Vercel (handler serverless)
+export default async function handler(req: any, res: any) {
+  await bootstrap();
+  return server(req, res);
+}
+
+// ✅ Dev local uniquement (pas exécuté sur Vercel)
+if (!process.env.VERCEL && require.main === module) {
+  bootstrap().then(() => {
+    const port = process.env.PORT ?? 3001;
+    server.listen(port, () => {
+      console.log(`🚀 NEXUS API démarrée sur http://localhost:${port}`);
+    });
+  });
+}
