@@ -662,4 +662,229 @@ export class HotelService {
 
     return { arrivals, departures };
   }
+
+  // ═══════════════════════════════════════════════════════
+  //  NIGHT AUDIT — Rapport journalier hôtel
+  // ═══════════════════════════════════════════════════════
+  async getNightAudit(user: any, dateStr: string) {
+    const orgId = await this.getOrganizationId(user);
+
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      throw new BadRequestException('Date invalide (format attendu : YYYY-MM-DD)');
+    }
+
+    const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
+    const dayEnd = new Date(`${dateStr}T23:59:59.999Z`);
+    if (isNaN(dayStart.getTime())) {
+      throw new BadRequestException('Date invalide');
+    }
+
+    // ─── 1. Chambres ──────────────────────────────────────
+    const [totalRooms, oooRooms] = await Promise.all([
+      this.prisma.room.count({ where: { organizationId: orgId } }),
+      this.prisma.room.count({
+        where: {
+          organizationId: orgId,
+          status: { in: ['OUT_OF_ORDER', 'MAINTENANCE'] },
+        },
+      }),
+    ]);
+
+    // ─── 2. Réservations couvrant la nuit ─────────────────
+    const soldReservations = await this.prisma.reservation.findMany({
+      where: {
+        organizationId: orgId,
+        status: { in: ['CHECKED_IN', 'CHECKED_OUT'] },
+        checkInDate: { lte: dayEnd },
+        checkOutDate: { gt: dayStart },
+      },
+      include: {
+        room: { include: { roomType: { select: { name: true, basePrice: true } } } },
+      },
+    });
+
+    const roomsSold = soldReservations.length;
+
+    // Revenu chambre de la nuit = totalAmount / nuits (split équitable)
+    let roomRevenue = 0;
+    for (const r of soldReservations) {
+      const nights = Math.max(
+        1,
+        Math.ceil((r.checkOutDate.getTime() - r.checkInDate.getTime()) / 86400000),
+      );
+      roomRevenue += (r.totalAmount || 0) / nights;
+    }
+
+    const occupancyRate = totalRooms > 0 ? (roomsSold / totalRooms) * 100 : 0;
+    const adr = roomsSold > 0 ? roomRevenue / roomsSold : 0;
+    const revpar = totalRooms > 0 ? roomRevenue / totalRooms : 0;
+    const roomsAvailable = Math.max(0, totalRooms - roomsSold - oooRooms);
+
+    // ─── 3. Mouvements du jour ────────────────────────────
+    const [arrivals, departures, noShows, inHouseCount] = await Promise.all([
+      this.prisma.reservation.count({
+        where: {
+          organizationId: orgId,
+          checkInDate: { gte: dayStart, lte: dayEnd },
+        },
+      }),
+      this.prisma.reservation.count({
+        where: {
+          organizationId: orgId,
+          checkOutDate: { gte: dayStart, lte: dayEnd },
+        },
+      }),
+      this.prisma.reservation.count({
+        where: {
+          organizationId: orgId,
+          checkInDate: { gte: dayStart, lte: dayEnd },
+          status: 'NO_SHOW',
+        },
+      }),
+      this.prisma.reservation.count({
+        where: {
+          organizationId: orgId,
+          status: 'CHECKED_IN',
+          checkInDate: { lte: dayEnd },
+          checkOutDate: { gt: dayStart },
+        },
+      }),
+    ]);
+
+    // ─── 4. Revenus restaurant ────────────────────────────
+    const orderPayments = await this.prisma.orderPayment.findMany({
+      where: {
+        order: { organizationId: orgId },
+        createdAt: { gte: dayStart, lte: dayEnd },
+      },
+    });
+    const restaurantRevenue = orderPayments.reduce((s, p) => s + p.amount, 0);
+
+    // ─── 5. Revenus extras (folio) ────────────────────────
+    const folioCharges = await this.prisma.folioCharge.findMany({
+      where: {
+        organizationId: orgId,
+        date: { gte: dayStart, lte: dayEnd },
+      },
+    });
+    const extrasRevenue = folioCharges.reduce((s, c) => s + c.total, 0);
+
+    const totalRevenue = roomRevenue + restaurantRevenue + extrasRevenue;
+
+    // ─── 6. Paiements par méthode ─────────────────────────
+    const paymentsByMethod: Record<string, number> = {};
+    orderPayments.forEach((p) => {
+      paymentsByMethod[p.method] = (paymentsByMethod[p.method] || 0) + p.amount;
+    });
+
+    // ─── 7. Soldes à recouvrer ────────────────────────────
+    // 7a. Clients déjà partis avec solde > 0
+    const departed = await this.prisma.reservation.findMany({
+      where: {
+        organizationId: orgId,
+        status: 'CHECKED_OUT',
+        checkOutDate: { lte: dayEnd },
+      },
+      include: {
+        customer: {
+          select: { firstName: true, lastName: true, phone: true },
+        },
+        room: { select: { number: true } },
+      },
+    });
+
+    const departedUnpaid = departed
+      .map((r) => ({
+        id: r.id,
+        reference: r.reference,
+        customer: `${r.customer?.firstName || ''} ${r.customer?.lastName || ''}`.trim(),
+        phone: r.customer?.phone,
+        room: r.room?.number,
+        checkOutDate: r.checkOutDate,
+        total: r.totalAmount,
+        paid: r.paidAmount,
+        balance: r.totalAmount - r.paidAmount,
+      }))
+      .filter((x) => x.balance > 0.01);
+
+    // 7b. Clients en séjour avec solde > 0
+    const inHouse = await this.prisma.reservation.findMany({
+      where: {
+        organizationId: orgId,
+        status: 'CHECKED_IN',
+        checkInDate: { lte: dayEnd },
+        checkOutDate: { gt: dayStart },
+      },
+      include: {
+        customer: {
+          select: { firstName: true, lastName: true, phone: true },
+        },
+        room: { include: { roomType: { select: { name: true, basePrice: true } } } },
+        folioCharges: true,
+      },
+    });
+
+    const inHouseUnpaid = inHouse
+      .map((r) => {
+        const nights = Math.max(
+          1,
+          Math.ceil((r.checkOutDate.getTime() - r.checkInDate.getTime()) / 86400000),
+        );
+        const roomTotal = nights * (r.room?.roomType?.basePrice || 0);
+        const extrasTotal = r.folioCharges.reduce((s, c) => s + c.total, 0);
+        const grandTotal = roomTotal + extrasTotal;
+        return {
+          id: r.id,
+          reference: r.reference,
+          customer: `${r.customer?.firstName || ''} ${r.customer?.lastName || ''}`.trim(),
+          phone: r.customer?.phone,
+          room: r.room?.number,
+          checkInDate: r.checkInDate,
+          checkOutDate: r.checkOutDate,
+          nights,
+          roomTotal,
+          extrasTotal,
+          grandTotal,
+          paid: r.paidAmount,
+          balance: grandTotal - r.paidAmount,
+        };
+      })
+      .filter((x) => x.balance > 0.01);
+
+    const totalDepartedUnpaid = departedUnpaid.reduce((s, x) => s + x.balance, 0);
+    const totalInHouseUnpaid = inHouseUnpaid.reduce((s, x) => s + x.balance, 0);
+
+    return {
+      date: dateStr,
+      generatedAt: new Date().toISOString(),
+      organization: null, // optionnel : à ajouter plus tard
+      summary: {
+        totalRooms,
+        roomsSold,
+        roomsAvailable,
+        roomsOoo: oooRooms,
+        occupancyRate: Math.round(occupancyRate * 100) / 100,
+        arrivals,
+        departures,
+        noShows,
+        inHouse: inHouseCount,
+      },
+      revenue: {
+        rooms: Math.round(roomRevenue),
+        restaurant: Math.round(restaurantRevenue),
+        extras: Math.round(extrasRevenue),
+        total: Math.round(totalRevenue),
+        adr: Math.round(adr),
+        revpar: Math.round(revpar),
+      },
+      paymentsByMethod,
+      unpaid: {
+        departed: departedUnpaid,
+        inHouse: inHouseUnpaid,
+        totalDeparted: Math.round(totalDepartedUnpaid),
+        totalInHouse: Math.round(totalInHouseUnpaid),
+        total: Math.round(totalDepartedUnpaid + totalInHouseUnpaid),
+      },
+    };
+  }
 }

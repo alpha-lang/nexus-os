@@ -18,6 +18,12 @@ export class HotelController {
   @Get('today')
   today(@CurrentUser() user: any) { return this.service.getArrivalsDepartures(user); }
 
+  // RAPPORT JOURNALIER (Night Audit)
+  @Get('reports/night-audit')
+  nightAudit(@CurrentUser() u: any, @Query('date') date: string) {
+    return this.service.getNightAudit(u, date);
+  }
+
   // PLANNING
   @Get('planning')
   planning(@CurrentUser() user: any, @Query('from') from: string, @Query('to') to: string) {
