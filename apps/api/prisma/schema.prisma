@@ -193,6 +193,7 @@ model User {
   maintenanceAssigned MaintenanceTicket[] @relation("MaintenanceAssigned")
   cashMovements       CashMovement[]
   cashSessions        CashSession[]
+  refreshTokens         RefreshToken[]
 }
 
 model Permission {
@@ -884,4 +885,24 @@ model Interaction {
   @@index([partnerId, createdAt])
   @@index([organizationId, createdAt])
   @@map("Interaction")
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUTH — Refresh tokens (15 min access + 7j refresh)
+// ═══════════════════════════════════════════════════════
+
+model RefreshToken {
+  id             String   @id @default(cuid())
+  token          String   @unique
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+  userAgent      String?
+  ipAddress      String?
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("RefreshToken")
 }

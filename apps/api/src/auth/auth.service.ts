@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { RefreshTokenService } from './refresh-token.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -14,6 +15,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private refreshTokenService: RefreshTokenService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -30,8 +32,10 @@ export class AuthService {
       organizationId: user.organizationId,
       isOwner: user.isOwner,
     };
+    const tokens = await this.refreshTokenService.generateTokens(payload);
     return {
-      token: this.jwtService.sign(payload),
+      ...tokens,
+      token: tokens.accessToken, // Compat avec l'ancien frontend
       user: {
         id: user.id,
         email: user.email,
@@ -64,8 +68,10 @@ export class AuthService {
       organizationId: user.organizationId,
       isOwner: user.isOwner,
     };
+    const tokens = await this.refreshTokenService.generateTokens(payload);
     return {
-      token: this.jwtService.sign(payload),
+      ...tokens,
+      token: tokens.accessToken,
       user: {
         id: user.id,
         email: user.email,

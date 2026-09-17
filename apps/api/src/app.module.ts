@@ -1,6 +1,10 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+
 import { PrismaModule } from './prisma/prisma.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
+import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { UsersModule } from './users/users.module';
@@ -19,7 +23,15 @@ import { StockModule } from './stock/stock.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000,
+        limit: 100,
+      },
+    ]),
     PrismaModule,
+    HealthModule,
     AuthModule,
     OrganizationsModule,
     UsersModule,
@@ -35,6 +47,12 @@ import { StockModule } from './stock/stock.module';
     PosModule,
     CashModule,
     StockModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {
