@@ -46,7 +46,6 @@ export class AuditLogInterceptor implements NestInterceptor {
           entityId: this.extractEntityId(path, req, response),
           newValue: this.safeSerialize(response),
           ipAddress: this.extractIp(req),
-          durationMs: Date.now() - startedAt,
         });
       }),
       catchError((err) => {
@@ -58,7 +57,6 @@ export class AuditLogInterceptor implements NestInterceptor {
           entityId: this.extractEntityId(path, req, null),
           newValue: JSON.stringify({ error: err?.message || String(err) }).slice(0, 2000),
           ipAddress: this.extractIp(req),
-          durationMs: Date.now() - startedAt,
         });
         return throwError(() => err);
       }),
