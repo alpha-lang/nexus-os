@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards,
+} from '@nestjs/common';
 import { CustomersService } from '../customers/customers.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -9,10 +11,20 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 export class PartnersController {
   constructor(private readonly service: CustomersService) {}
 
-  // ─── CRUD principal ───
   @Get()
-  findAll(@CurrentUser() u: any, @Query() q: any) {
-    return this.service.findAllPartners(u, q);
+  findAll(
+    @CurrentUser() u: any,
+    @Query('type') type?: string,
+    @Query('cursor') cursor?: string,
+    @Query('take') take?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.findAllPartners(u, {
+      type,
+      cursor,
+      take: take ? parseInt(take, 10) : undefined,
+      search,
+    });
   }
 
   @Post()
@@ -40,7 +52,6 @@ export class PartnersController {
     return this.service.remove(id, u);
   }
 
-  // ─── TAGS ───
   @Post(':id/tags')
   addTag(@CurrentUser() u: any, @Param('id') id: string, @Body() b: { tag: string }) {
     return this.service.addTag(id, b.tag, u);
@@ -51,7 +62,6 @@ export class PartnersController {
     return this.service.removeTag(id, decodeURIComponent(tag), u);
   }
 
-  // ─── NOTES ───
   @Post(':id/notes')
   addNote(@CurrentUser() u: any, @Param('id') id: string, @Body() b: { content: string }) {
     return this.service.addNote(id, b.content, u);
@@ -62,7 +72,6 @@ export class PartnersController {
     return this.service.deleteNote(id, noteId, u);
   }
 
-  // ─── DOCUMENTS ───
   @Post(':id/documents')
   addDocument(@CurrentUser() u: any, @Param('id') id: string, @Body() b: any) {
     return this.service.addDocument(id, b, u);

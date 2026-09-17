@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { paginate } from '../common/pagination/paginate';
 
 @Injectable()
 export class CustomersService {
@@ -60,9 +61,21 @@ export class CustomersService {
       where.organizationId = user.organizationId;
     }
     if (filters.type) where.type = filters.type;
-    return this.prisma.partner.findMany({
+    if (filters.search) {
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { firstName: { contains: filters.search, mode: 'insensitive' } },
+        { lastName: { contains: filters.search, mode: 'insensitive' } },
+        { email: { contains: filters.search, mode: 'insensitive' } },
+        { phone: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    return paginate(this.prisma.partner, {
       where,
       orderBy: { name: 'asc' },
+      take: filters.take || 20,
+      cursor: filters.cursor,
     });
   }
 
