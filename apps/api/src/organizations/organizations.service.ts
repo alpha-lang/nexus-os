@@ -8,14 +8,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
+// Select safe : ne JAMAIS exposer le hash password
+const SAFE_USER_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  isActive: true,
+  isOwner: true,
+  createdAt: true,
+} as const;
+
 @Injectable()
 export class OrganizationsService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Seul le SUPER_ADMIN owner peut créer/modifier/supprimer des organisations.
-   * Les ADMIN d'org peuvent uniquement consulter.
-   */
   private assertCanManage(user: any) {
     if (!user || user.role !== 'SUPER_ADMIN' || !user.isOwner) {
       throw new ForbiddenException(
@@ -56,9 +63,11 @@ export class OrganizationsService {
     return this.prisma.organization.findUnique({
       where: { id: organization.id },
       include: {
-        subscriptions: { include: { activeModules: { include: { module: true } } } },
+        subscriptions: {
+          include: { activeModules: { include: { module: true } } },
+        },
         storageQuota: true,
-        users: true,
+        users: { select: SAFE_USER_SELECT },
       },
     });
   }
@@ -66,7 +75,9 @@ export class OrganizationsService {
   async findAll() {
     return this.prisma.organization.findMany({
       include: {
-        subscriptions: { include: { activeModules: { include: { module: true } } } },
+        subscriptions: {
+          include: { activeModules: { include: { module: true } } },
+        },
         storageQuota: true,
         _count: { select: { users: true, partners: true } },
       },
@@ -78,9 +89,11 @@ export class OrganizationsService {
     const org = await this.prisma.organization.findUnique({
       where: { id },
       include: {
-        subscriptions: { include: { activeModules: { include: { module: true } } } },
+        subscriptions: {
+          include: { activeModules: { include: { module: true } } },
+        },
         storageQuota: true,
-        users: true,
+        users: { select: SAFE_USER_SELECT },
       },
     });
     if (!org) throw new NotFoundException('Organisation introuvable');
@@ -93,7 +106,6 @@ export class OrganizationsService {
     const org = await this.prisma.organization.findUnique({ where: { id } });
     if (!org) throw new NotFoundException('Organisation introuvable');
 
-    // Si on change le slug, vérifier l'unicité
     if (dto.slug && dto.slug !== org.slug) {
       const dup = await this.prisma.organization.findUnique({
         where: { slug: dto.slug },
@@ -123,7 +135,7 @@ export class OrganizationsService {
     if (!org) throw new NotFoundException('Organisation introuvable');
     if (org.type === 'INTERNE') {
       throw new ForbiddenException(
-        'Impossible de supprimer l\'organisation interne (NEXUS CORP)',
+        "Impossible de supprimer l'organisation interne (NEXUS CORP)",
       );
     }
     return this.prisma.organization.delete({ where: { id } });
@@ -133,7 +145,9 @@ export class OrganizationsService {
     return this.prisma.organization.findMany({
       where: { type: { not: 'INTERNE' } },
       include: {
-        subscriptions: { include: { activeModules: { include: { module: true } } } },
+        subscriptions: {
+          include: { activeModules: { include: { module: true } } },
+        },
         storageQuota: true,
       },
       orderBy: { name: 'asc' },
