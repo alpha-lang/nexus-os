@@ -384,35 +384,57 @@ export class StockService {
     if (!this.canWrite(user)) throw new ForbiddenException('Acces refuse');
     const orgId = await this.getOrganizationId(user);
 
-    const item = await this.prisma.stockItem.findFirst({
-      where: { id: data.itemId, organizationId: orgId },
-    });
-    if (!item) throw new NotFoundException('Article introuvable');
-
-    const warehouse = await this.prisma.stockWarehouse.findFirst({
-      where: { id: data.warehouseId, organizationId: orgId },
-    });
-    if (!warehouse) throw new NotFoundException('Magasin introuvable');
-
     const quantity = parseFloat(data.quantity) || 0;
     if (quantity === 0) throw new BadRequestException('Quantite invalide');
 
     const type = data.type || 'RECEPTION';
     const isOut = ['CONSUMPTION', 'LOSS', 'TRANSFER_OUT'].includes(type);
-    const signedQty = isOut ? -Math.abs(quantity) : Math.abs(quantity);
+    const absQty = Math.abs(quantity);
 
-    // Verif stock suffisant pour les sorties
-    if (isOut && item.currentStock < Math.abs(quantity)) {
-      throw new BadRequestException(`Stock insuffisant (${item.currentStock} ${item.unit} dispo)`);
-    }
-
+    // ═══════════════════════════════════════════════════════════
+    // Tout est dans la transaction, y compris le check de stock.
+    // Le UPDATE conditionnel (stock >= qty) est atomique :
+    // si 0 ligne affectée → stock insuffisant (race-safe).
+    // ═══════════════════════════════════════════════════════════
     return this.prisma.$transaction(async (tx) => {
+      const item = await tx.stockItem.findFirst({
+        where: { id: data.itemId, organizationId: orgId },
+      });
+      if (!item) throw new NotFoundException('Article introuvable');
+
+      const warehouse = await tx.stockWarehouse.findFirst({
+        where: { id: data.warehouseId, organizationId: orgId },
+      });
+      if (!warehouse) throw new NotFoundException('Magasin introuvable');
+
+      if (isOut) {
+        // UPDATE atomique : ne s'exécute que si stock suffisant
+        const result = await tx.stockItem.updateMany({
+          where: {
+            id: data.itemId,
+            organizationId: orgId,
+            currentStock: { gte: absQty },
+          },
+          data: { currentStock: { decrement: absQty } },
+        });
+        if (result.count === 0) {
+          throw new BadRequestException(
+            `Stock insuffisant (${item.currentStock} ${item.unit} dispo, ${absQty} demandé)`,
+          );
+        }
+      } else {
+        await tx.stockItem.update({
+          where: { id: data.itemId },
+          data: { currentStock: { increment: absQty } },
+        });
+      }
+
       const movement = await tx.stockMovement.create({
         data: {
           itemId: data.itemId,
           warehouseId: data.warehouseId,
           type,
-          quantity: signedQty,
+          quantity: isOut ? -absQty : absQty,
           unitCost: data.unitCost != null ? parseFloat(data.unitCost) : item.costPrice,
           reason: data.reason || null,
           reference: data.reference || null,
@@ -423,17 +445,16 @@ export class StockService {
         },
       });
 
-      // MAJ currentStock global
-      await tx.stockItem.update({
-        where: { id: item.id },
-        data: { currentStock: { increment: signedQty } },
-      });
-
-      // MAJ stock du magasin
       await tx.stockItemStock.upsert({
-        where: { itemId_warehouseId: { itemId: item.id, warehouseId: data.warehouseId } },
-        update: { quantity: { increment: signedQty } },
-        create: { itemId: item.id, warehouseId: data.warehouseId, quantity: signedQty },
+        where: {
+          itemId_warehouseId: { itemId: item.id, warehouseId: data.warehouseId },
+        },
+        update: { quantity: { increment: isOut ? -absQty : absQty } },
+        create: {
+          itemId: item.id,
+          warehouseId: data.warehouseId,
+          quantity: isOut ? -absQty : absQty,
+        },
       });
 
       return movement;

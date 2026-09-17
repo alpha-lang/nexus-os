@@ -244,39 +244,36 @@ export class PurchaseOrdersService {
     if (!this.canWrite(user)) throw new ForbiddenException('Acces refuse');
     const orgId = await this.getOrganizationId(user);
 
-    const order = await this.prisma.purchaseOrder.findFirst({
-      where: { id, organizationId: orgId },
-      include: { items: { include: { stockItem: true } } },
-    });
-    if (!order) throw new NotFoundException('Commande introuvable');
-    if (order.status === 'RECEIVED') throw new BadRequestException('Commande deja receptionnee');
-    if (order.status === 'CANCELLED') throw new BadRequestException('Commande annulee');
-
-    // Magasin de reception
-    const warehouseId = data.warehouseId || (
-      await this.prisma.stockWarehouse.findFirst({
-        where: { organizationId: orgId, isDefault: true },
-      })
-    )?.id;
-    if (!warehouseId) throw new BadRequestException('Aucun magasin disponible');
-
-    // Map des quantites recues (par itemId)
-    const receivedMap: Record<string, number> = {};
-    for (const it of (data.items || [])) {
-      receivedMap[it.itemId] = parseFloat(it.receivedQty) || 0;
-    }
-
-    // Si pas de detail fourni, on prend tout
-    const useFull = Object.keys(receivedMap).length === 0;
-
+    // Le check du statut + la réception sont DANS la même transaction.
+    // On utilise updateMany avec WHERE status valide : si 0 ligne, déjà reçue.
     return this.prisma.$transaction(async (tx) => {
+      const order = await tx.purchaseOrder.findFirst({
+        where: { id, organizationId: orgId },
+        include: { items: { include: { stockItem: true } } },
+      });
+      if (!order) throw new NotFoundException('Commande introuvable');
+      if (order.status === 'RECEIVED') throw new BadRequestException('Commande deja receptionnee');
+      if (order.status === 'CANCELLED') throw new BadRequestException('Commande annulee');
+
+      const warehouseId = data.warehouseId || (
+        await tx.stockWarehouse.findFirst({
+          where: { organizationId: orgId, isDefault: true },
+        })
+      )?.id;
+      if (!warehouseId) throw new BadRequestException('Aucun magasin disponible');
+
+      const receivedMap: Record<string, number> = {};
+      for (const it of (data.items || [])) {
+        receivedMap[it.itemId] = parseFloat(it.receivedQty) || 0;
+      }
+      const useFull = Object.keys(receivedMap).length === 0;
+
       let allFull = true;
 
       for (const item of order.items) {
         const qtyToReceive = useFull ? item.quantity : (receivedMap[item.id] || 0);
         if (qtyToReceive <= 0) { allFull = false; continue; }
 
-        // StockMovement RECEPTION
         await tx.stockMovement.create({
           data: {
             itemId: item.stockItemId,
@@ -291,14 +288,15 @@ export class PurchaseOrdersService {
           },
         });
 
-        // Update StockItem.currentStock + PMP (nouveau prix moyen pondere)
+        // PMP (prix moyen pondéré) — calcul dans la transaction
         const item0 = await tx.stockItem.findUnique({ where: { id: item.stockItemId } });
         if (item0) {
           const oldQty = item0.currentStock;
           const oldCost = item0.costPrice;
           const newQty = oldQty + qtyToReceive;
-          // PMP : (ancien stock x ancien prix + recu x prix) / nouveau stock
-          const newPMP = newQty > 0 ? (oldQty * oldCost + qtyToReceive * item.unitCost) / newQty : item.unitCost;
+          const newPMP = newQty > 0
+            ? (oldQty * oldCost + qtyToReceive * item.unitCost) / newQty
+            : item.unitCost;
 
           await tx.stockItem.update({
             where: { id: item.stockItemId },
@@ -306,29 +304,25 @@ export class PurchaseOrdersService {
           });
         }
 
-        // StockItemStock du magasin
         await tx.stockItemStock.upsert({
-          where: { itemId_warehouseId: { itemId: item.stockItemId, warehouseId } },
+          where: {
+            itemId_warehouseId: { itemId: item.stockItemId, warehouseId },
+          },
           update: { quantity: { increment: qtyToReceive } },
           create: { itemId: item.stockItemId, warehouseId, quantity: qtyToReceive },
         });
 
-        // Marquer l'item comme recu
         await tx.purchaseOrderItem.update({
           where: { id: item.id },
           data: { receivedQty: qtyToReceive },
         });
       }
 
-      // Statut final
       const newStatus = allFull || useFull ? 'RECEIVED' : 'PARTIAL';
 
       return tx.purchaseOrder.update({
         where: { id },
-        data: {
-          status: newStatus,
-          receivedAt: new Date(),
-        },
+        data: { status: newStatus, receivedAt: new Date() },
         include: { supplier: true, items: { include: { stockItem: true } } },
       });
     });

@@ -222,34 +222,43 @@ export class DashboardService {
   }
 
   private async getMonthlyRevenue(months: number) {
-    const result: { month: string; label: string; revenue: number }[] = [];
     const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
 
+    // Une seule requête groupBy au lieu d'une par mois
+    const rows = await this.prisma.$queryRaw<{ m: Date; total: number }[]>`
+      SELECT date_trunc('month', p.date) AS m,
+             COALESCE(SUM(p.amount), 0)::float AS total
+      FROM "Payment" p
+      JOIN "Organization" o ON o.id = p."organizationId"
+      WHERE p.date >= ${start}
+        AND p.status = 'PAID'
+        AND o.type <> 'INTERNE'
+      GROUP BY 1
+      ORDER BY 1
+    `;
+
+    // Index par YYYY-MM
+    const byMonth = new Map<string, number>();
+    for (const r of rows) {
+      const d = new Date(r.m);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      byMonth.set(key, Number(r.total) || 0);
+    }
+
+    const result: { month: string; label: string; revenue: number }[] = [];
     for (let i = months - 1; i >= 0; i--) {
-      const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-
-      const agg = await this.prisma.payment.aggregate({
-        where: {
-          date: { gte: start, lt: end },
-          status: 'PAID',
-          organization: { type: { not: 'INTERNE' } },
-        },
-        _sum: { amount: true },
-      });
-
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       result.push({
-        month: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`,
-        label: start.toLocaleDateString('fr-FR', { month: 'short' }),
-        revenue: agg._sum.amount || 0,
+        month: key,
+        label: d.toLocaleDateString('fr-FR', { month: 'short' }),
+        revenue: byMonth.get(key) || 0,
       });
     }
     return result;
   }
 
-  // ==============================
-  // HOTEL
-  // ==============================
   private async getHotelStats(orgId: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
