@@ -6,9 +6,10 @@ import Redis from 'ioredis';
 export function createThrottlerConfig(): ThrottlerModuleOptions {
   const url = process.env.UPSTASH_REDIS_URL;
 
+  const isDev = process.env.NODE_ENV !== 'production';
   const throttlers = [
-    { name: 'default', ttl: 60_000, limit: 100 },
-    { name: 'auth', ttl: 900_000, limit: 5 },
+    { name: 'default', ttl: 60_000, limit: isDev ? 1000 : 100 },
+    { name: 'auth', ttl: 900_000, limit: isDev ? 100 : 5 },
   ];
 
   if (url && url.startsWith('rediss://')) {
