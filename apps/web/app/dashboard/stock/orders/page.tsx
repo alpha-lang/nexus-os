@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../../../../lib/api';
 import { useSearchParams } from 'next/navigation';
-import { Modal, Button, FormField, Input, Select, Textarea } from '../../../../components/ui';
+import { Modal, Button, FormField, Input, Select, Textarea, SearchableSelect } from '../../../../components/ui';
 
 type StatusId = 'ALL' | 'DRAFT' | 'SENT' | 'PARTIAL' | 'RECEIVED' | 'CANCELLED';
 
@@ -353,10 +353,18 @@ export default function OrdersPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Fournisseur" required>
-              <Select value={supplierId} onChange={e => setSupplierId(e.target.value)} required>
-                <option value="">- Choisir -</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </Select>
+              <SearchableSelect
+                value={supplierId}
+                onChange={setSupplierId}
+                options={suppliers.map((sup: any) => ({
+                  value: sup.id,
+                  label: sup.name,
+                  sub: [sup.contactName, sup.phone, sup.leadTimeDays != null ? 'délai ' + sup.leadTimeDays + 'j' : null].filter(Boolean).join(' · '),
+                }))}
+                placeholder="Rechercher un fournisseur…"
+                emptyLabel="— Choisir un fournisseur —"
+                required
+              />
             </FormField>
             <FormField label="Date prevue">
               <Input type="date" value={expectedDate} onChange={e => setExpectedDate(e.target.value)} />
@@ -398,19 +406,20 @@ export default function OrdersPage() {
                   <div key={idx} className="bg-slate-50 rounded-xl p-2 border border-slate-200">
                     <div className="grid grid-cols-12 gap-2">
                       <div className="col-span-6 relative">
-                        <select
+                        <SearchableSelect
                           value={line.stockItemId}
-                          onChange={e => {
-                            const it = items.find((x: any) => x.id === e.target.value);
-                            updateLine(idx, { stockItemId: e.target.value, unitCost: it?.costPrice?.toString() || '' });
+                          onChange={(v) => {
+                            const it = items.find((x: any) => x.id === v);
+                            updateLine(idx, { stockItemId: v, unitCost: it?.costPrice?.toString() || '' });
                           }}
-                          className={'w-full px-3 py-2.5 bg-white border-2 rounded-lg text-sm font-bold transition ' + (line.stockItemId ? 'border-teal-400 text-slate-900' : 'border-slate-200 text-slate-400')}
-                        >
-                          <option value="">- Choisir un article -</option>
-                          {items.map((i: any) => (
-                            <option key={i.id} value={i.id}>{i.name} ({i.currentStock} {i.unit})</option>
-                          ))}
-                        </select>
+                          options={items.map((i: any) => ({
+                            value: i.id,
+                            label: i.name,
+                            sub: i.currentStock + ' ' + i.unit + ' en stock · ' + (i.costPrice || 0).toLocaleString('fr-FR') + ' Ar',
+                          }))}
+                          placeholder="Rechercher un article…"
+                          emptyLabel="— Choisir un article —"
+                        />
                         {selectedItem && (
                           <p className="text-[10px] text-slate-500 mt-1 ml-1">
                             Stock actuel : <span className={'font-bold ' + (selectedItem.currentStock <= selectedItem.minStock ? 'text-red-600' : 'text-slate-700')}>{selectedItem.currentStock} {selectedItem.unit}</span>
