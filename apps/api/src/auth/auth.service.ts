@@ -19,7 +19,7 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.prisma.user.findFirst({ where: { email: dto.email  } });
     if (!user) throw new UnauthorizedException('Identifiants invalides');
     if (!user.isActive) throw new UnauthorizedException('Compte désactivé');
 
@@ -47,7 +47,7 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const existing = await this.prisma.user.findFirst({ where: { email: dto.email  } });
     if (existing) throw new ConflictException('Email déjà utilisé');
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);

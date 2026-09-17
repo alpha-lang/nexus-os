@@ -330,7 +330,7 @@ export class CustomersService {
       }
       if (data.userRole === 'SUPER_ADMIN') throw new ForbiddenException('Impossible de créer un Super Admin ici.');
 
-      const existingUser = await this.prisma.user.findUnique({ where: { email: data.userEmail } });
+      const existingUser = await this.prisma.user.findFirst({ where: { email: data.userEmail  } });
       if (existingUser) throw new ConflictException('Cet email est déjà utilisé.');
 
       const hashedPassword = await bcrypt.hash(data.userPassword, 10);
@@ -373,7 +373,7 @@ export class CustomersService {
       }
       if (data.userRole === 'SUPER_ADMIN') throw new ForbiddenException('Impossible de créer un Super Admin ici.');
 
-      const existingUser = await this.prisma.user.findUnique({ where: { email: data.userEmail } });
+      const existingUser = await this.prisma.user.findFirst({ where: { email: data.userEmail  } });
       if (existingUser) throw new ConflictException('Cet email est déjà utilisé.');
 
       const hashedPassword = await bcrypt.hash(data.userPassword, 10);

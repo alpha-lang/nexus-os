@@ -7,7 +7,7 @@ async function main() {
   const email = 'admin@nexus.com';
   const password = 'Admin123!';
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findFirst({ where: { email } });
   if (!existing) {
     const hashed = await bcrypt.hash(password, 10);
     await prisma.user.create({
