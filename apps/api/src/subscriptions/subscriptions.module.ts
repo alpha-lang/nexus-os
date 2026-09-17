@@ -12,7 +12,7 @@ import { BillingModule } from '../billing/billing.module';
     BillingModule, // ← Ajouté pour résoudre l'erreur
   ],
   controllers: [SubscriptionsController],
-  providers: [SubscriptionsService, PrismaService],
+  providers: [SubscriptionsService],
   exports: [SubscriptionsService],
 })
 export class SubscriptionsModule {}

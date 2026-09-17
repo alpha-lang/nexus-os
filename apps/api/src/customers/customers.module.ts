@@ -9,7 +9,7 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [AuthModule],
   controllers: [CustomersController, PartnersController],
-  providers: [CustomersService, PrismaService],
+  providers: [CustomersService],
   exports: [CustomersService],
 })
 export class CustomersModule {}

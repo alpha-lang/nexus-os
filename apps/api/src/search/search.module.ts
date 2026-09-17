@@ -7,6 +7,6 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [AuthModule],
   controllers: [SearchController],
-  providers: [SearchService, PrismaService],
+  providers: [SearchService],
 })
 export class SearchModule {}

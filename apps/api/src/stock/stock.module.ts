@@ -9,7 +9,7 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [AuthModule],
   controllers: [StockController, PurchaseOrdersController],
-  providers: [StockService, PurchaseOrdersService, PrismaService],
+  providers: [StockService, PurchaseOrdersService],
   exports: [StockService, PurchaseOrdersService],
 })
 export class StockModule {}

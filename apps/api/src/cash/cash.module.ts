@@ -7,7 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [AuthModule],
   controllers: [CashController],
-  providers: [CashService, PrismaService],
+  providers: [CashService],
   exports: [CashService],
 })
 export class CashModule {}

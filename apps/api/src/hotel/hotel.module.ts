@@ -7,7 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [AuthModule],
   controllers: [HotelController],
-  providers: [HotelService, PrismaService],
+  providers: [HotelService],
   exports: [HotelService],
 })
 export class HotelModule {}
