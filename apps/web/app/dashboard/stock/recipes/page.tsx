@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../../../../lib/api';
-import { Modal, Button, FormField, Input, Textarea } from '../../../../components/ui';
+import { Modal, Button, FormField, Input, Textarea, SearchableSelect } from '../../../../components/ui';
 
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<any[]>([]);
@@ -224,48 +224,155 @@ export default function RecipesPage() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-slate-700">Ingredients</label>
-              <button type="button" onClick={addIngredientRow} className="text-xs font-bold text-teal-600 hover:underline">+ Ajouter</button>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <label className="text-sm font-bold text-slate-700">Ingrédients</label>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {ingredients.length} ligne{ingredients.length > 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addIngredientRow}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Ajouter un ingrédient
+              </button>
             </div>
+
+            {/* Header colonnes */}
+            <div className="grid grid-cols-12 gap-2 mb-2 px-1">
+              <div className="col-span-6 text-[10px] font-black text-slate-400 uppercase tracking-wider">Article</div>
+              <div className="col-span-3 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Quantité</div>
+              <div className="col-span-2 text-[10px] font-black text-slate-400 uppercase tracking-wider text-center">Unité</div>
+              <div className="col-span-1"></div>
+            </div>
+
             <div className="space-y-2">
-              {ingredients.map((ing, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2">
-                  <select
-                    value={ing.stockItemId}
-                    onChange={e => updateIngredient(idx, { stockItemId: e.target.value })}
-                    className="col-span-6 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
-                  >
-                    <option value="">Article...</option>
-                    {items.filter((i: any) => i.isIngredient).map((i: any) => (
-                      <option key={i.id} value={i.id}>{i.name}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    step="0.001"
-                    value={ing.quantity}
-                    onChange={e => updateIngredient(idx, { quantity: e.target.value })}
-                    placeholder="Qte"
-                    className="col-span-3 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold"
-                  />
-                  <input
-                    type="text"
-                    value={ing.unit}
-                    onChange={e => updateIngredient(idx, { unit: e.target.value })}
-                    placeholder="kg"
-                    className="col-span-2 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                  />
+              {ingredients.length === 0 && (
+                <div className="bg-slate-50 rounded-xl p-6 text-center border border-dashed border-slate-200">
+                  <p className="text-sm text-slate-400">Aucun ingrédient</p>
                   <button
                     type="button"
-                    onClick={() => removeIngredientRow(idx)}
-                    className="col-span-1 text-red-500 hover:bg-red-50 rounded-lg font-bold transition"
+                    onClick={addIngredientRow}
+                    className="text-xs font-bold text-teal-600 hover:underline mt-1"
                   >
-                    ✕
+                    + Ajouter le premier
                   </button>
                 </div>
-              ))}
+              )}
+
+              {ingredients.map((ing, idx) => {
+                const selected = items.find((i: any) => i.id === ing.stockItemId);
+                const qty = parseFloat(ing.quantity) || 0;
+                const lineCost = selected ? qty * (selected.costPrice || 0) : 0;
+
+                return (
+                  <div key={idx} className="bg-slate-50 rounded-xl p-2 border border-slate-200">
+                    <div className="grid grid-cols-12 gap-2">
+                      <div className="col-span-6">
+                        <SearchableSelect
+                          value={ing.stockItemId}
+                          onChange={(v) => {
+                            const item = items.find((i: any) => i.id === v);
+                            updateIngredient(idx, {
+                              stockItemId: v,
+                              unit: item?.unit || ing.unit,
+                            });
+                          }}
+                          options={items
+                            .filter((i: any) => i.isIngredient)
+                            .map((i: any) => ({
+                              value: i.id,
+                              label: i.name,
+                              sub: `${i.currentStock || 0} ${i.unit} · ${(i.costPrice || 0).toLocaleString('fr-FR')} Ar/${i.unit}`,
+                            }))}
+                          placeholder="Rechercher un ingrédient…"
+                          emptyLabel="— Choisir —"
+                        />
+                      </div>
+
+                      <input
+                        type="number"
+                        step="0.001"
+                        value={ing.quantity}
+                        onChange={e => updateIngredient(idx, { quantity: e.target.value })}
+                        placeholder="0"
+                        className="col-span-3 px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-black text-slate-900 text-center tabular-nums focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition"
+                      />
+
+                      <input
+                        type="text"
+                        value={ing.unit}
+                        onChange={e => updateIngredient(idx, { unit: e.target.value })}
+                        placeholder="kg"
+                        className="col-span-2 px-2 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-700 text-center focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeIngredientRow(idx)}
+                        className="col-span-1 w-9 h-9 rounded-lg text-red-500 hover:bg-red-100 flex items-center justify-center transition self-center"
+                        title="Retirer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3"/>
+                        </svg>
+                      </button>
+                    </div>
+
+                    {selected && qty > 0 && (
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200 px-1">
+                        <span className="text-[10px] text-slate-500">
+                          Coût : <span className="font-bold text-slate-700">{qty} × {(selected.costPrice || 0).toLocaleString('fr-FR')} Ar</span>
+                        </span>
+                        <span className="text-sm font-black text-teal-700 tabular-nums">
+                          {lineCost.toLocaleString('fr-FR')} Ar
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Récap coût total */}
+            {ingredients.length > 0 && (() => {
+              const totalCost = ingredients.reduce((sum, ing) => {
+                const item = items.find((i: any) => i.id === ing.stockItemId);
+                return sum + (parseFloat(ing.quantity) || 0) * (item?.costPrice || 0);
+              }, 0);
+              const portions = parseInt(yieldCount) || 1;
+              const costPerPortion = totalCost / portions;
+              const salePrice = parseFloat(sellingPrice) || 0;
+              const margin = salePrice - costPerPortion;
+              const marginPct = salePrice > 0 ? (margin / salePrice) * 100 : 0;
+
+              return (
+                <div className="mt-4 bg-slate-900 rounded-xl p-4 text-white grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mb-0.5">Coût total</p>
+                    <p className="text-base font-black tabular-nums">{totalCost.toLocaleString('fr-FR')}</p>
+                    <p className="text-[9px] text-slate-500">Ar</p>
+                  </div>
+                  <div className="text-center border-x border-slate-700">
+                    <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mb-0.5">Coût / portion</p>
+                    <p className="text-base font-black text-teal-400 tabular-nums">{Math.round(costPerPortion).toLocaleString('fr-FR')}</p>
+                    <p className="text-[9px] text-slate-500">Ar × {portions}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mb-0.5">Marge</p>
+                    <p className={'text-base font-black tabular-nums ' + (marginPct >= 50 ? 'text-emerald-400' : marginPct >= 30 ? 'text-amber-400' : 'text-red-400')}>
+                      {Math.round(margin).toLocaleString('fr-FR')}
+                    </p>
+                    <p className="text-[9px] text-slate-500">{marginPct.toFixed(0)}%</p>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           <FormField label="Notes">
