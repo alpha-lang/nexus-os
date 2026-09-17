@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateModuleDto } from './dto/create-module.dto';
+import { UpdateModuleDto } from './dto/update-module.dto';
 
 @Injectable()
 export class ModulesService {
@@ -85,7 +87,7 @@ export class ModulesService {
     return module;
   }
 
-  async create(data: any, user: any) {
+  async create(data: CreateModuleDto, user: any) {
     if (!user.isOwner || user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Seul le Super Admin Owner peut créer un module.');
     }
@@ -109,7 +111,7 @@ export class ModulesService {
     });
   }
 
-  async update(id: string, data: any, user: any) {
+  async update(id: string, data: UpdateModuleDto, user: any) {
     await this.findOne(id, user);
     if (!user.isOwner || user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Seul le Super Admin Owner peut modifier un module.');

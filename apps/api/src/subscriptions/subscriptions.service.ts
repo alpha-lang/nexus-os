@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePrice } from '../modules/pricing.util';
 import { BillingService } from '../billing/billing.service';
+import { CreateSubscriptionDto } from './dto/create-subscription.dto';
+import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 
 @Injectable()
 export class SubscriptionsService {
@@ -47,7 +49,7 @@ export class SubscriptionsService {
     });
   }
 
-  async create(data: any) {
+  async create(data: CreateSubscriptionDto) {
     const organization = await this.prisma.organization.findUnique({
       where: { id: data.organizationId },
     });
@@ -98,7 +100,7 @@ export class SubscriptionsService {
       }
     }
 
-    const quotaPrice = parseFloat(data.quotaPrice) || 0;
+    const quotaPrice = data.quotaPrice || 0;
     if (data.maxStorage) {
       await this.prisma.storageQuota.upsert({
         where: { organizationId: data.organizationId },
@@ -153,7 +155,7 @@ export class SubscriptionsService {
     });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: UpdateSubscriptionDto) {
     await this.findOne(id);
     return this.prisma.subscription.update({
       where: { id },

@@ -1,33 +1,50 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateOrganizationDto } from './dto/create-organization.dto';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
 @Injectable()
 export class OrganizationsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: any) {
+  /**
+   * Seul le SUPER_ADMIN owner peut créer/modifier/supprimer des organisations.
+   * Les ADMIN d'org peuvent uniquement consulter.
+   */
+  private assertCanManage(user: any) {
+    if (!user || user.role !== 'SUPER_ADMIN' || !user.isOwner) {
+      throw new ForbiddenException(
+        'Seul le SUPER_ADMIN propriétaire peut gérer les organisations',
+      );
+    }
+  }
+
+  async create(dto: CreateOrganizationDto, user: any) {
+    this.assertCanManage(user);
+
     const existing = await this.prisma.organization.findUnique({
-      where: { slug: data.slug },
+      where: { slug: dto.slug },
     });
     if (existing) throw new BadRequestException('Cette organisation existe déjà');
 
     const organization = await this.prisma.organization.create({
       data: {
-        name: data.name,
-        slug: data.slug,
-        type: data.type || null,
-        city: data.city || null,
-        email: data.email || null,
-        phone: data.phone || null,
-        description: data.description || null,
-        status: data.status || 'ACTIVE',
+        name: dto.name,
+        slug: dto.slug,
+        type: dto.type ?? null,
+        city: dto.city ?? null,
+        email: dto.email ?? null,
+        phone: dto.phone ?? null,
+        description: dto.description ?? null,
+        status: dto.status ?? 'ACTIVE',
       },
     });
 
-    // On crée uniquement le quota de stockage par défaut.
-    // Pas d'utilisateur, pas d'abonnement : à créer explicitement
-    // depuis /dashboard/users ou /dashboard/tenant-admins et
-    // /dashboard/subscriptions.
     await this.prisma.storageQuota.create({
       data: {
         organizationId: organization.id,
@@ -70,27 +87,45 @@ export class OrganizationsService {
     return org;
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, dto: UpdateOrganizationDto, user: any) {
+    this.assertCanManage(user);
+
     const org = await this.prisma.organization.findUnique({ where: { id } });
     if (!org) throw new NotFoundException('Organisation introuvable');
+
+    // Si on change le slug, vérifier l'unicité
+    if (dto.slug && dto.slug !== org.slug) {
+      const dup = await this.prisma.organization.findUnique({
+        where: { slug: dto.slug },
+      });
+      if (dup) throw new BadRequestException('Ce slug est déjà utilisé');
+    }
+
     return this.prisma.organization.update({
       where: { id },
       data: {
-        name: data.name ?? undefined,
-        slug: data.slug ?? undefined,
-        type: data.type ?? undefined,
-        city: data.city ?? undefined,
-        email: data.email ?? undefined,
-        phone: data.phone ?? undefined,
-        description: data.description ?? undefined,
-        status: data.status ?? undefined,
+        name: dto.name ?? undefined,
+        slug: dto.slug ?? undefined,
+        type: dto.type ?? undefined,
+        city: dto.city ?? undefined,
+        email: dto.email ?? undefined,
+        phone: dto.phone ?? undefined,
+        description: dto.description ?? undefined,
+        status: dto.status ?? undefined,
       },
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: any) {
+    this.assertCanManage(user);
+
     const org = await this.prisma.organization.findUnique({ where: { id } });
     if (!org) throw new NotFoundException('Organisation introuvable');
+    if (org.type === 'INTERNE') {
+      throw new ForbiddenException(
+        'Impossible de supprimer l\'organisation interne (NEXUS CORP)',
+      );
+    }
     return this.prisma.organization.delete({ where: { id } });
   }
 

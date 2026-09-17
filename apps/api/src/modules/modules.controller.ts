@@ -1,8 +1,12 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards,
+} from '@nestjs/common';
 import { ModulesService } from './modules.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CreateModuleDto } from './dto/create-module.dto';
+import { UpdateModuleDto } from './dto/update-module.dto';
 
 @Controller('modules')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -20,13 +24,17 @@ export class ModulesController {
   }
 
   @Post()
-  create(@Body() body: any, @CurrentUser() user: any) {
-    return this.service.create(body, user);
+  create(@Body() dto: CreateModuleDto, @CurrentUser() user: any) {
+    return this.service.create(dto, user);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any, @CurrentUser() user: any) {
-    return this.service.update(id, body, user);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateModuleDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.service.update(id, dto, user);
   }
 
   @Delete(':id')

@@ -1,7 +1,11 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards,
+} from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { CreateSubscriptionDto } from './dto/create-subscription.dto';
+import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 
 @Controller('subscriptions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -24,13 +28,13 @@ export class SubscriptionsController {
   }
 
   @Post()
-  create(@Body() body: any) {
-    return this.service.create(body);
+  create(@Body() dto: CreateSubscriptionDto) {
+    return this.service.create(dto);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return this.service.update(id, body);
+  update(@Param('id') id: string, @Body() dto: UpdateSubscriptionDto) {
+    return this.service.update(id, dto);
   }
 
   @Patch(':id/activate-module/:moduleId')
