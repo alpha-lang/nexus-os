@@ -86,6 +86,7 @@ export default function JournalCaissePage() {
   const [selectedRegister, setSelectedRegister] = useState<string>('');
   const [mvtPreset, setMvtPreset] = useState<'today' | 'week' | 'month' | 'all'>('week');
   const [mvtType, setMvtType] = useState<string>('ALL');
+  const [showOnlyNeedsReview, setShowOnlyNeedsReview] = useState(false);
   const [search, setSearch] = useState('');
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -250,6 +251,7 @@ export default function JournalCaissePage() {
     }
 
     // Type
+    if (showOnlyNeedsReview) list = list.filter((m) => m.needsReview === true);
     if (mvtType === 'IN') list = list.filter((m) => ['SALE', 'IN', 'DEPOSIT', 'TRANSFER_IN'].includes(m.type));
     else if (mvtType === 'OUT') list = list.filter((m) => ['EXPENSE', 'OUT', 'WITHDRAWAL', 'TRANSFER_OUT'].includes(m.type));
     else if (mvtType !== 'ALL') list = list.filter((m) => m.type === mvtType);
@@ -268,7 +270,7 @@ export default function JournalCaissePage() {
     list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return list;
-  }, [movements, selectedRegister, search, mvtPreset, mvtType]);
+  }, [movements, selectedRegister, search, mvtPreset, mvtType, showOnlyNeedsReview]);
 
   const pagMvt = usePagination(filteredMovements, { perPageDefault: 20 });
 
@@ -282,7 +284,8 @@ export default function JournalCaissePage() {
       if (isOut) outAmt += m.amount;
       else inAmt += m.amount;
     });
-    return { inAmt, outAmt, net: inAmt - outAmt, count: filteredMovements.length };
+    const needsReviewCount = filteredMovements.filter((m) => m.needsReview).length;
+    return { inAmt, outAmt, net: inAmt - outAmt, count: filteredMovements.length, needsReviewCount };
   }, [filteredMovements]);
 
   if (loading) {
@@ -510,6 +513,26 @@ export default function JournalCaissePage() {
               ))}
             </div>
 
+            {/* Toggle À valider */}
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200">
+              <button
+                onClick={() => setShowOnlyNeedsReview(!showOnlyNeedsReview)}
+                className={'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ' + (
+                  showOnlyNeedsReview
+                    ? 'bg-red-500 text-white shadow'
+                    : 'bg-white border border-red-200 text-red-700 hover:bg-red-50'
+                )}
+              >
+                <span className={'w-1.5 h-1.5 rounded-full ' + (showOnlyNeedsReview ? 'bg-white' : 'bg-red-500')}></span>
+                À valider
+                {mvtTotals.needsReviewCount > 0 && (
+                  <span className={'px-1.5 py-0.5 rounded-md text-[10px] ' + (showOnlyNeedsReview ? 'bg-white/30' : 'bg-red-100')}>
+                    {mvtTotals.needsReviewCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
             {/* Row 3 : bandeau totaux periode */}
             {mvtTotals.count > 0 && (
               <div className="bg-slate-900 rounded-xl px-4 py-3 text-white flex flex-wrap items-center gap-4 text-xs">
@@ -565,6 +588,11 @@ export default function JournalCaissePage() {
                         <span className={`inline-block text-[10px] px-2 py-1 rounded-full font-black ${meta.color}`}>
                           {meta.label}
                         </span>
+                        {m.needsReview && (
+                          <span className="ml-1 inline-block text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-black" title="Enregistré sans caisse ouverte — à valider">
+                            À VALIDER
+                          </span>
+                        )}
                       </td>
                       <td className="p-3 text-xs font-medium text-slate-800 truncate max-w-xs">{m.reason || '-'}</td>
                       <td className="p-3 text-xs text-slate-600">{m.user?.name || m.user?.email || '-'}</td>

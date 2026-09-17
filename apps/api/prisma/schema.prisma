@@ -4,8 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -440,6 +441,7 @@ model Reservation {
   posSales         PosSale[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  cashMovements    CashMovement[]
 }
 
 // ============================================
@@ -664,10 +666,13 @@ model CashMovement {
   register       CashRegister @relation(fields: [registerId], references: [id], onDelete: Cascade)
   sessionId      String?
   session        CashSession? @relation(fields: [sessionId], references: [id])
+  reservationId  String?
+  reservation    Reservation? @relation(fields: [reservationId], references: [id])
   type           String
   amount         Float
   reason         String?
   reference      String?
+  needsReview    Boolean      @default(false)
   userId         String?
   user           User?        @relation(fields: [userId], references: [id])
   organizationId String
@@ -675,6 +680,8 @@ model CashMovement {
   createdAt      DateTime     @default(now())
 
   @@index([sessionId])
+  @@index([reservationId])
+  @@index([organizationId, needsReview])
   @@map("CashMovement")
 }
 

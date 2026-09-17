@@ -919,7 +919,7 @@ export class HotelService {
       newStatus = 'DEPOSIT_PAID';
     }
 
-    // Récupère la session de caisse ouverte
+    // STRICT : exige une caisse OUVERTE
     const openSession = await this.prisma.cashSession.findFirst({
       where: {
         organizationId: orgId,
@@ -928,6 +928,12 @@ export class HotelService {
       },
       orderBy: { openedAt: 'desc' },
     });
+
+    if (!openSession) {
+      throw new BadRequestException(
+        'Aucune caisse ouverte. Ouvrez une caisse avant d\'encaisser un acompte.',
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Mise à jour de la réservation
@@ -942,26 +948,25 @@ export class HotelService {
         include: { customer: true, room: { include: { roomType: true } } },
       });
 
-      // 2. Si une caisse est ouverte → créer un mouvement SALE
-      if (openSession) {
-        await tx.cashMovement.create({
-          data: {
-            registerId: openSession.registerId,
-            sessionId: openSession.id,
-            type: 'DEPOSIT',
-            amount,
-            reason: `Acompte résa ${reservation.reference}`,
-            reference: reservation.reference,
-            userId: user.userId || user.id,
-            organizationId: orgId,
-          },
-        });
+      // 2. CashMovement (session garantie ouverte)
+      await tx.cashMovement.create({
+        data: {
+          registerId: openSession.registerId,
+          sessionId: openSession.id,
+          reservationId: reservation.id,
+          type: 'DEPOSIT',
+          amount,
+          reason: `Acompte résa ${reservation.reference}`,
+          reference: reservation.reference,
+          userId: user.userId || user.id,
+          organizationId: orgId,
+        },
+      });
 
-        await tx.cashRegister.update({
-          where: { id: openSession.registerId },
-          data: { currentBalance: { increment: amount } },
-        });
-      }
+      await tx.cashRegister.update({
+        where: { id: openSession.registerId },
+        data: { currentBalance: { increment: amount } },
+      });
 
       return updated;
     });

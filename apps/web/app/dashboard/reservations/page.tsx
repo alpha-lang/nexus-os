@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import CashStatusBanner from '../../../components/CashStatusBanner';
 import { apiFetch } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, Badge, PageHeader, FormField, Input, Select, Textarea } from '../../../components/ui';
@@ -67,6 +68,7 @@ export default function ReservationsPage() {
   const [depositMethod, setDepositMethod] = useState('CASH');
   const [depositNotes, setDepositNotes] = useState('');
   const [depositSaving, setDepositSaving] = useState(false);
+  const [depositError, setDepositError] = useState<string | null>(null);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
@@ -185,13 +187,14 @@ export default function ReservationsPage() {
       setDepositNotes('');
       await loadAll();
     } catch (err: any) {
-      alert(err.message);
+      setDepositError(err.message || 'Erreur inconnue');
     } finally {
       setDepositSaving(false);
     }
   }
 
   function openDepositModal(r: any) {
+    setDepositError(null);
     setDepositModal(r);
     const remaining = (r.totalAmount || 0) - (r.paidAmount || 0);
     // Par défaut : 30% du total
@@ -299,6 +302,8 @@ export default function ReservationsPage() {
 
   return (
     <div className="space-y-4">
+      <CashStatusBanner />
+
       <PageHeader
         title="Réservations"
         subtitle={`${filtered.length} réservation${filtered.length > 1 ? 's' : ''} affichée${filtered.length > 1 ? 's' : ''}`}
@@ -644,6 +649,102 @@ export default function ReservationsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Modal d'erreur caisse */}
+      {depositError && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"
+            onClick={() => setDepositError(null)}
+          ></div>
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Bandeau rouge */}
+            <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-black text-white">
+                  {depositError.toLowerCase().includes('caisse')
+                    ? 'Caisse fermée'
+                    : depositError.toLowerCase().includes('solde') || depositError.toLowerCase().includes('dépasse')
+                    ? 'Montant trop élevé'
+                    : 'Erreur d\'encaissement'}
+                </h2>
+                <p className="text-xs text-red-100 mt-0.5">
+                  {depositError.toLowerCase().includes('caisse')
+                    ? 'Action impossible sans caisse ouverte'
+                    : 'Veuillez corriger le montant'}
+                </p>
+              </div>
+            </div>
+
+            {/* Corps */}
+            <div className="p-6 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+                <p className="text-sm text-red-800 leading-relaxed">
+                  {depositError}
+                </p>
+              </div>
+
+              {depositError.toLowerCase().includes('caisse') ? (
+                <div className="bg-slate-50 rounded-2xl p-4">
+                  <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2">
+                    Que faire ?
+                  </p>
+                  <ol className="text-xs text-slate-700 space-y-1.5 pl-4 list-decimal">
+                    <li>Cliquez sur "Ouvrir la caisse" ci-dessous</li>
+                    <li>Ouvrez une session sur la caisse souhaitée</li>
+                    <li>Revenez ici et recommencez l'encaissement</li>
+                  </ol>
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                  <p className="text-[10px] text-amber-700 uppercase font-black tracking-widest mb-1.5">
+                    💡 Conseil
+                  </p>
+                  <p className="text-xs text-amber-900 leading-relaxed">
+                    Le montant de l'acompte ne peut pas dépasser le solde dû.
+                    Utilisez un des boutons rapides <b>30% / 50% / 100%</b> pour un calcul automatique.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-slate-100 p-4 bg-slate-50/50 flex gap-2">
+              {depositError.toLowerCase().includes('caisse') ? (
+                <>
+                  <button
+                    onClick={() => setDepositError(null)}
+                    className="px-5 py-3 bg-white border-2 border-slate-200 rounded-xl font-bold text-sm text-slate-700 hover:bg-slate-100 transition"
+                  >
+                    Fermer
+                  </button>
+                  <a
+                    href="/dashboard/caisse/journal"
+                    className="flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white py-3 rounded-xl font-black text-sm shadow-lg transition flex items-center justify-center gap-2"
+                  >
+                    Ouvrir la caisse
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                    </svg>
+                  </a>
+                </>
+              ) : (
+                <button
+                  onClick={() => setDepositError(null)}
+                  className="flex-1 px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-black text-sm shadow-lg transition"
+                >
+                  Modifier le montant
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal enregistrer acompte */}
       {depositModal && (

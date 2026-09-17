@@ -221,6 +221,22 @@ export class CashService {
         },
       });
 
+      // Trace l'apport initial comme mouvement IN (visible dans le journal)
+      if (openingAmount > 0) {
+        await tx.cashMovement.create({
+          data: {
+            registerId,
+            sessionId: session.id,
+            type: 'IN',
+            amount: openingAmount,
+            reason: 'Fond de caisse ouverture',
+            reference: 'OPEN-' + session.id.slice(-6).toUpperCase(),
+            userId: user.userId || user.id,
+            organizationId: orgId,
+          },
+        });
+      }
+
       return session;
     });
   }

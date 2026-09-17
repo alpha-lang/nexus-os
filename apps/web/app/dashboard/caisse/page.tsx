@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import CashStatusBanner from '../../../components/CashStatusBanner';
 import { apiFetch } from '../../../lib/api';
 import type { ReactNode } from 'react';
 import { usePagination } from '../../../lib/usePagination';
@@ -553,6 +554,8 @@ export default function CaissePage() {
 
   return (
     <div className="space-y-3">
+      <CashStatusBanner />
+
       {/* HEADER */}
       <div className="bg-linear-to-r from-slate-900 via-blue-900 to-teal-900 rounded-2xl px-4 py-3 text-white shadow-lg flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">

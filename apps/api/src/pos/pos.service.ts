@@ -423,32 +423,42 @@ export class PosService {
    */
   private async recordCashSale(orgId: string, user: any, amount: number, orderId: string) {
     try {
-      // STRICT : seules les caisses OUVERTES acceptent des mouvements.
-      // Si aucune caisse n est ouverte, on refuse silencieusement
-      // (le paiement est encaisse mais pas journalise en caisse).
+      // STRICT : exige une caisse OUVERTE
       const register = await this.prisma.cashRegister.findFirst({
         where: { organizationId: orgId, status: 'OPEN' },
         orderBy: { createdAt: 'asc' },
       });
 
       if (!register) {
-        this.logger.warn(
-          `[recordCashSale] Aucune caisse OUVERTE - vente POS ${orderId.slice(-4).toUpperCase()} ${amount} Ar NON journalisee. Ouvrez une caisse puis saisissez un mouvement manuel.`,
+        throw new BadRequestException(
+          'Aucune caisse ouverte. Ouvrez une caisse avant d\'encaisser une vente.',
         );
-        return;
       }
 
-      // Recupere la session ouverte du register
+      // Session ouverte sur ce register
       const openSession = await this.prisma.cashSession.findFirst({
         where: { registerId: register.id, closedAt: null },
         orderBy: { openedAt: 'desc' },
+      });
+
+      if (!openSession) {
+        throw new BadRequestException(
+          'Aucune session de caisse ouverte. Ouvrez une session avant d\'encaisser.',
+        );
+      }
+
+      // Récupère l'order pour lier la résa si applicable
+      const order = await this.prisma.restaurantOrder.findUnique({
+        where: { id: orderId },
+        select: { reservationId: true },
       });
 
       await this.prisma.$transaction(async (tx) => {
         await tx.cashMovement.create({
           data: {
             registerId: register.id,
-            sessionId: openSession?.id || null,
+            sessionId: openSession.id,
+            reservationId: order?.reservationId || null,
             type: 'SALE',
             amount,
             reason: `Vente POS ${orderId.slice(-4).toUpperCase()}`,
@@ -465,6 +475,7 @@ export class PosService {
       });
     } catch (err) {
       this.logger.error('[recordCashSale] Erreur', err instanceof Error ? err.stack : String(err));
+      throw err;
     }
   }
 
@@ -701,22 +712,87 @@ export class PosService {
     const extrasTotal = reservation.folioCharges.reduce((s, c) => s + c.total, 0);
     const amount = parseFloat(data.amount) || extrasTotal;
 
+    const method = data.method || 'CASH';
+
     // Créer un Payment
     await this.prisma.payment.create({
       data: {
         organizationId: orgId,
         amount,
-        method: data.method || 'CASH',
+        method,
         note: `Clôture folio ${reservation.reference}`,
         status: 'PAID',
       },
     });
+
+    // Trace en caisse
+    await this.recordFolioPayment(orgId, user, amount, reservation, method);
 
     // Mettre à jour la résa
     return this.prisma.reservation.update({
       where: { id: reservationId },
       data: { paidAmount: reservation.paidAmount + amount },
     });
+  }
+
+  /**
+   * Trace un paiement de folio dans la caisse (avec fallback needsReview).
+   */
+  private async recordFolioPayment(
+    orgId: string,
+    user: any,
+    amount: number,
+    reservation: any,
+    method: string,
+  ) {
+    try {
+      // STRICT : exige une caisse OUVERTE
+      const register = await this.prisma.cashRegister.findFirst({
+        where: { organizationId: orgId, status: 'OPEN' },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (!register) {
+        throw new BadRequestException(
+          'Aucune caisse ouverte. Ouvrez une caisse avant d\'encaisser un paiement.',
+        );
+      }
+
+      const openSession = await this.prisma.cashSession.findFirst({
+        where: { registerId: register.id, closedAt: null },
+        orderBy: { openedAt: 'desc' },
+      });
+
+      if (!openSession) {
+        throw new BadRequestException(
+          'Aucune session de caisse ouverte. Ouvrez une session avant d\'encaisser.',
+        );
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.cashMovement.create({
+          data: {
+            registerId: register.id,
+            sessionId: openSession.id,
+            reservationId: reservation.id,
+            type: 'SALE',
+            amount,
+            reason: `Paiement folio ${reservation.reference}`,
+            reference: reservation.reference,
+            userId: user.userId || user.id,
+            organizationId: orgId,
+          },
+        });
+
+        await tx.cashRegister.update({
+          where: { id: register.id },
+          data: { currentBalance: { increment: amount } },
+        });
+      });
+    } catch (err) {
+      this.logger.error('[recordFolioPayment] Erreur', err instanceof Error ? err.stack : String(err));
+      throw err;
+    }
   }
 
   // ═══════════════════════════════════════════
@@ -875,6 +951,9 @@ export class PosService {
           status: 'PAID',
         },
       });
+
+      // Trace en caisse
+      await this.recordFolioPayment(orgId, user, solde, reservation, data.method);
     }
 
     // Check-out : résa → CHECKED_OUT, chambre → CLEANING

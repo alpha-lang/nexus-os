@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import CashStatusBanner from '../../../../components/CashStatusBanner';
 import { apiFetch } from '../../../../lib/api';
 
 export default function FoliosPage() {
@@ -170,6 +171,8 @@ export default function FoliosPage() {
 
   return (
     <div className="space-y-4">
+      <CashStatusBanner />
+
       {/* Header */}
       <div className="bg-linear-to-r from-slate-900 to-blue-900 rounded-2xl px-5 py-4 text-white shadow-lg">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
