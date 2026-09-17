@@ -3,7 +3,6 @@ import { StockService } from './stock.service';
 import { StockController } from './stock.controller';
 import { PurchaseOrdersService } from './purchase-orders.service';
 import { PurchaseOrdersController } from './purchase-orders.controller';
-import { PrismaService } from '../prisma.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
