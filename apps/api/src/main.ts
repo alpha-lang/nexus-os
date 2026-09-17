@@ -11,7 +11,7 @@ async function bootstrap() {
 
   bootstrapPromise = (async () => {
     const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
-      logger: ['error', 'warn', 'log'],
+      logger: ['error', 'warn', 'log', 'debug', 'verbose'],
     });
 
     // ═══ CORS : liste blanche d'origines ═══
