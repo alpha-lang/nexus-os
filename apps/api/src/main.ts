@@ -29,14 +29,13 @@ async function bootstrap() {
         if (!origin) return callback(null, true);
         // Origine explicitement autorisée
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        // Previews Vercel du team (branches/PR)
-        if (
-          /^https:\/\/[a-z0-9-]+-elikantos-projects\.vercel\.app$/.test(origin) ||
-          /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin) && origin.includes('nexus')
-        ) {
+        // Previews Vercel (branches/PR du team)
+        if (/^https:\/\/[a-z0-9-]+-elikantos-projects\.vercel\.app$/.test(origin)) {
           return callback(null, true);
         }
-        callback(new Error(`Origine CORS non autorisée : ${origin}`));
+        // Origine refusée : on n'ajoute PAS les headers CORS
+        // Le navigateur bloquera la réponse tout seul (pas de 500)
+        return callback(null, false);
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
