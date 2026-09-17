@@ -48,9 +48,12 @@ export class CustomersService {
   //  PARTNERS (vue unifiee)
   // ═══════════════════════════════════════════════════════
   async findAllPartners(user: any, filters: any = {}) {
-    const orgId = user.organizationId;
-    if (!orgId) throw new ForbiddenException('Organisation requise');
-    const where: any = { organizationId: orgId };
+    const canSeeAll = await this.isInternalOrg(user);
+    const where: any = {};
+    if (!canSeeAll) {
+      if (!user.organizationId) throw new ForbiddenException('Organisation requise');
+      where.organizationId = user.organizationId;
+    }
     if (filters.type) where.type = filters.type;
     return this.prisma.partner.findMany({
       where,

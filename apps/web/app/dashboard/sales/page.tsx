@@ -26,7 +26,7 @@ export default function SalesPage() {
   useEffect(() => {
     Promise.all([
       fetch('/api/sales', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      fetch('/api/customers', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch('/api/partners?type=CUSTOMER', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
     ])
       .then(([s, c]) => {
         setSales(Array.isArray(s) ? s : []);

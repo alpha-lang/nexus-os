@@ -66,7 +66,7 @@ export default function ReservationsPage() {
     const [rRes, roomRes, custRes] = await Promise.all([
       fetch('/api/hotel/reservations', { headers: { Authorization: `Bearer ${token}` } }),
       fetch('/api/hotel/rooms', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/customers', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/partners?type=CUSTOMER', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [r, room, cust] = await Promise.all([rRes.json(), roomRes.json(), custRes.json()]);
     setReservations(Array.isArray(r) ? r : []);
