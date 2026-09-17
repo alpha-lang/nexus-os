@@ -71,15 +71,18 @@ export default function CrmPage() {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type: nType,
-        name: nName,
-        firstName: nFirstName,
-        lastName: nLastName,
-        email: nEmail,
-        phone: nPhone,
-        address: nAddress,
-        city: nCity,
-        contactName: nContactName,
-        leadTimeDays: nLeadTimeDays,
+        // Si Client → "Prénom Nom", sinon nName (raison sociale) ou fallback
+        name: (nType === 'CUSTOMER' || !nName.trim())
+          ? [nFirstName, nLastName].filter(Boolean).join(' ').trim() || nName
+          : nName,
+        firstName: nFirstName || null,
+        lastName: nLastName || null,
+        email: nEmail || null,
+        phone: nPhone || null,
+        address: nAddress || null,
+        city: nCity || null,
+        contactName: nContactName || null,
+        leadTimeDays: nLeadTimeDays || null,
       }),
     });
     setSaving(false);
@@ -330,16 +333,32 @@ export default function CrmPage() {
             </div>
           </FormField>
 
-          <FormField label={nType === 'CUSTOMER' ? 'Nom complet' : 'Raison sociale'} required>
-            <Input type="text" value={nName} onChange={e => setNName(e.target.value)} placeholder={nType === 'CUSTOMER' ? 'Jean Dupont' : 'Metro Tana'} required />
-          </FormField>
-
+          {/* CUSTOMER → Prénom + Nom (personne physique) */}
           {nType === 'CUSTOMER' && (
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="Prenom">
+              <FormField label="Prénom" required>
+                <Input type="text" value={nFirstName} onChange={e => setNFirstName(e.target.value)} placeholder="Jean" required />
+              </FormField>
+              <FormField label="Nom" required>
+                <Input type="text" value={nLastName} onChange={e => setNLastName(e.target.value)} placeholder="Dupont" required />
+              </FormField>
+            </div>
+          )}
+
+          {/* SUPPLIER ou BOTH → Raison sociale obligatoire */}
+          {(nType === 'SUPPLIER' || nType === 'BOTH') && (
+            <FormField label="Raison sociale" required>
+              <Input type="text" value={nName} onChange={e => setNName(e.target.value)} placeholder="Metro Tana" required />
+            </FormField>
+          )}
+
+          {/* BOTH → Prénom + Nom optionnels */}
+          {nType === 'BOTH' && (
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Prénom (contact)">
                 <Input type="text" value={nFirstName} onChange={e => setNFirstName(e.target.value)} placeholder="Jean" />
               </FormField>
-              <FormField label="Nom">
+              <FormField label="Nom (contact)">
                 <Input type="text" value={nLastName} onChange={e => setNLastName(e.target.value)} placeholder="Dupont" />
               </FormField>
             </div>

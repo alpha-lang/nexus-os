@@ -20,8 +20,8 @@ export class SearchService {
       this.prisma.partner.findMany({
         where: {
           ...orgFilter,
-          type: 'CUSTOMER',
           OR: [
+            { name: { contains: query, mode: 'insensitive' } },
             { firstName: { contains: query, mode: 'insensitive' } },
             { lastName: { contains: query, mode: 'insensitive' } },
             { email: { contains: query, mode: 'insensitive' } },
@@ -29,7 +29,7 @@ export class SearchService {
           ],
         },
         take: 5,
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true, city: true },
+        select: { id: true, name: true, type: true, firstName: true, lastName: true, email: true, phone: true, city: true },
       }),
 
       isSuper

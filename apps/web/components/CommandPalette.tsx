@@ -112,8 +112,8 @@ export default function CommandPalette() {
     return [
       ...(results.customers || []).map((c: any) => ({
         type: 'customer',
-        label: `${c.firstName} ${c.lastName}`,
-        sub: c.email || c.phone || c.city || '',
+        label: c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || '(sans nom)',
+        sub: [c.type, c.email, c.phone, c.city].filter(Boolean).join(' · ') || '',
         href: `/dashboard/crm/${c.id}`,
       })),
       ...(results.reservations || []).map((r: any) => ({
@@ -229,7 +229,7 @@ export default function CommandPalette() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-slate-900 truncate">
-                            {c.firstName} {c.lastName}
+                            {c.name || [c.firstName, c.lastName].filter(Boolean).join(' ')}
                           </div>
                           <div className="text-xs text-slate-500 truncate">{c.email || c.phone || c.city || '—'}</div>
                         </div>
