@@ -308,7 +308,7 @@ export default function TablesMapPage() {
             )}
           </div>
         ) : view === 'confort' ? (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+          <div className="cv-grid grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
             {filtered.map((t) => (
               <button
                 key={t.id}
@@ -337,7 +337,7 @@ export default function TablesMapPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+          <div className="cv-grid grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
             {filtered.map((t) => (
               <button
                 key={t.id}

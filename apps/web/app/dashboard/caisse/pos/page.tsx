@@ -696,7 +696,7 @@ export default function CaissePage() {
                       <button key={loc} onClick={() => setLocationFilter(loc)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${locationFilter === loc ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{loc} <span className="text-[10px] opacity-70">({tables.filter(t => t.location === loc).length})</span></button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                  <div className="cv-grid grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
                     {tables.filter(t => t.location === locationFilter).map(t => {
                       const free = t.status === 'FREE';
                       return (
@@ -763,7 +763,7 @@ export default function CaissePage() {
                     );
                   })}
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2">
+                <div className="cv-grid grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2">
                   {filteredMenu.map(item => {
                     const cat = CATEGORIES[item.category] || CATEGORIES.OTHER;
                     const inCart = newCart.find(c => c.menuItem.id === item.id);

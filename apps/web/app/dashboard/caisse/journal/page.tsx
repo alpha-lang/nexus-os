@@ -131,8 +131,13 @@ export default function JournalCaissePage() {
 
   useEffect(() => {
     load().catch(console.error).finally(() => setLoading(false));
-    const i = setInterval(() => load().catch(console.error), 30000);
-    return () => clearInterval(i);
+    const i = setInterval(() => {
+      if (document.hidden) return;
+      load().catch(console.error);
+    }, 60000);
+    function onVis() { if (!document.hidden) load().catch(console.error); }
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(i); document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
   function openRegisterModal(reg?: any) {
