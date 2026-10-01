@@ -43,14 +43,16 @@ export default function Modal({
   if (!open) return null;
 
   return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">
+      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
         onClick={onClose}
-      ></div>
+      />
 
+      {/* Contenu */}
       <div
-        className={`relative bg-white rounded-3xl shadow-2xl w-full ${SIZES[size]} max-h-[92vh] sm:max-h-[92vh] max-h-screen sm:rounded-3xl rounded-none sm:m-4 m-0 overflow-hidden flex flex-col animate-in zoom-in-95`}
+        className={`relative bg-white w-full ${SIZES[size]} rounded-none sm:rounded-3xl shadow-2xl max-h-screen sm:max-h-[92vh] m-0 sm:m-auto overflow-hidden flex flex-col animate-in zoom-in-95`}
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-900 via-blue-900 to-teal-900 px-6 py-5 flex items-center gap-4">
