@@ -45,6 +45,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (parent) setExpandedModule(parent.route);
   }, [pathname, activeModules]);
 
+  // Ferme le drawer mobile à chaque navigation
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   function isItemActive(itemPath: string): boolean {
     if (itemPath === '/dashboard') return pathname === '/dashboard';
     return pathname === itemPath || pathname.startsWith(itemPath + '/');

@@ -144,3 +144,48 @@ body {
   content-visibility: auto;
   contain-intrinsic-size: 48px;
 }
+
+/* ═══════════════════════════════════════════════
+   Indication visuelle : tableau scrollable horizontalement
+   Petit dégradé subtil à droite pour signaler qu'il y a du contenu
+   ═══════════════════════════════════════════════ */
+.scroll-x {
+  position: relative;
+}
+.scroll-x::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.06), transparent);
+  border-radius: 0 0.75rem 0.75rem 0;
+}
+
+/* Sur mobile : scroll plus fluide + masquer scrollbar */
+.scroll-x {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-x::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+/* Boutons tactiles : minimum 44px (Apple HIG) sur mobile */
+@media (max-width: 640px) {
+  button:not(.no-min-touch),
+  [role="button"]:not(.no-min-touch),
+  a.btn:not(.no-min-touch) {
+    min-height: 40px;
+  }
+}

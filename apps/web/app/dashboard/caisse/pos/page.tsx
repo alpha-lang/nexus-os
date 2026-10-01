@@ -733,6 +733,17 @@ export default function CaissePage() {
           )}
           {newStep === 'cart' && (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4">
+              {/* Bouton flottant panier (mobile uniquement) */}
+              {newCart.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { const el = document.getElementById('mobile-cart-anchor'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
+                  className="lg:hidden fixed bottom-20 right-4 z-40 bg-teal-500 hover:bg-teal-600 active:scale-95 text-white rounded-full px-4 py-3 shadow-2xl font-black text-xs flex items-center gap-2 transition"
+                >
+                  <span className="bg-white/25 rounded-full w-6 h-6 flex items-center justify-center text-[10px]">{newItemCount}</span>
+                  {newTotal.toLocaleString('fr-FR')} Ar
+                </button>
+              )}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <button onClick={() => { if (newServiceType === 'DINE_IN') setNewStep('table'); else if (newServiceType === 'ROOM') setNewStep('room'); else setNewStep('type'); }} className="text-slate-500 hover:text-slate-900"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg></button>
@@ -782,7 +793,7 @@ export default function CaissePage() {
                   })}
                 </div>
               </div>
-              <div className="lg:sticky lg:top-20 h-fit">
+              <div id="mobile-cart-anchor" className="lg:sticky lg:top-20 h-fit scroll-mt-20">
                 <div className="bg-white rounded-2xl shadow-xl border-2 border-slate-200 overflow-hidden">
                   <div className="bg-linear-to-r from-slate-900 to-blue-900 px-4 py-3 text-white">
                     <div className="flex items-center justify-between">
