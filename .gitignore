@@ -44,3 +44,10 @@ nexus-*.txt
 source-complet.txt
 *.tar.gz
 tmp-fixes/
+
+# ─── Backups locaux (jamais commiter) ───
+*.bak
+*.backup
+*.corrupted.bak
+.env.*.bak
+.env.neon.*
