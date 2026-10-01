@@ -31,9 +31,9 @@ async function main() {
 
   // ─── 2. Fournisseurs ───
   const suppliers = await Promise.all([
-    p.stockSupplier.create({ data: { name: 'Metro Tana', contactName: 'Jean Paul', phone: '+261 34 11 111 11', email: 'contact@metro.mg', leadTimeDays: 2, organizationId: orgId } }).catch(() => null),
-    p.stockSupplier.create({ data: { name: 'Leader Price', contactName: 'Marie', phone: '+261 34 22 222 22', leadTimeDays: 3, organizationId: orgId } }).catch(() => null),
-    p.stockSupplier.create({ data: { name: 'Boucherie Centrale', contactName: 'Hery', phone: '+261 34 33 333 33', leadTimeDays: 1, organizationId: orgId } }).catch(() => null),
+    p.partner.create({ data: { type: 'SUPPLIER', name: 'Metro Tana', contactName: 'Jean Paul', phone: '+261 34 11 111 11', email: 'contact@metro.mg', leadTimeDays: 2, organizationId: orgId } }).catch(() => null),
+    p.partner.create({ data: { type: 'SUPPLIER', name: 'Leader Price', contactName: 'Marie', phone: '+261 34 22 222 22', leadTimeDays: 3, organizationId: orgId } }).catch(() => null),
+    p.partner.create({ data: { type: 'SUPPLIER', name: 'Boucherie Centrale', contactName: 'Hery', phone: '+261 34 33 333 33', leadTimeDays: 1, organizationId: orgId } }).catch(() => null),
   ]).then(arr => arr.filter(Boolean));
   console.log('Fournisseurs:', suppliers.length);
 
