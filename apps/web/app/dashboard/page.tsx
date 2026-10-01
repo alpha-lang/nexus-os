@@ -132,6 +132,7 @@ export default function DashboardPage() {
 
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon apres-midi' : 'Bonsoir';
+  const displayName = user?.name || (typeof window !== "undefined" ? localStorage.getItem("userName") : null) || "Utilisateur";
 
   const isSuperAdmin = stats?.type === 'SUPER_ADMIN';
   const isHotel = stats?.type === 'HOTEL';
@@ -171,7 +172,7 @@ export default function DashboardPage() {
               </span>
             </div>
             <h1 className="text-base md:text-lg font-black tracking-tight leading-tight">
-              {greeting}, <span className="text-teal-400">{user?.name?.split(' ')[0] || 'Utilisateur'}</span>
+              {greeting}, <span className="text-teal-400">{displayName.split(" ")[0]}</span>
             </h1>
           </div>
 

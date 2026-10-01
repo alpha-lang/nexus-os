@@ -34,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         localStorage.setItem('isOwner', data.isOwner ? 'true' : 'false');
         localStorage.setItem('orgType', data.organization?.type || '');
         localStorage.setItem('orgName', data.organization?.name || '');
+        localStorage.setItem("userName", data.name || "");
       })
       .catch(() => router.push('/login'))
       .finally(() => setLoading(false));
