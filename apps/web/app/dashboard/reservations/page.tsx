@@ -156,11 +156,12 @@ export default function ReservationsPage() {
   ), [filtered]);
 
   const pag = usePagination(filtered, { perPageDefault: 15 });
+  const setPage = pag.setPage;
 
   // Reset page quand filtres / tri changent
   useEffect(() => {
-    pag.setPage(1);
-  }, [search, statusFilter, dateFrom, dateTo, sortKey, sortDir]);
+    setPage(1);
+  }, [search, statusFilter, dateFrom, dateTo, sortKey, sortDir, setPage]);
 
   const due = totals.total - totals.paid;
 

@@ -164,4 +164,13 @@ export class SalesService {
 
     return this.prisma.sale.delete({ where: { id } });
   }
+
+  async listCatalogItems(user: any) {
+    const canSeeAll = await this.isInternalUser(user);
+    const where = canSeeAll ? {} : { organizationId: user.organizationId };
+    return this.prisma.catalogItem.findMany({
+      where,
+      orderBy: { name: 'asc' },
+    });
+  }
 }

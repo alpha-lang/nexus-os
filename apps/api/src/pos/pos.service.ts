@@ -759,16 +759,6 @@ export class PosService {
 
     const method = data.method || 'CASH';
 
-    // Créer un Payment
-    await this.prisma.payment.create({
-      data: {
-        organizationId: orgId,
-        amount,
-        method,
-        note: `Clôture folio ${reservation.reference}`,
-        status: 'PAID',
-      },
-    });
 
     // Trace en caisse
     await this.recordFolioPayment(orgId, user, amount, reservation, method);
@@ -987,15 +977,6 @@ export class PosService {
 
     // Encaisser le solde s'il reste quelque chose
     if (solde > 0 && data.method) {
-      await this.prisma.payment.create({
-        data: {
-          organizationId: orgId,
-          amount: solde,
-          method: data.method,
-          note: `Clôture séjour ${reservation.reference} (${nights} nuits + extras)`,
-          status: 'PAID',
-        },
-      });
 
       // Trace en caisse
       await this.recordFolioPayment(orgId, user, solde, reservation, data.method);

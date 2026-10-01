@@ -5,9 +5,15 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('sales')
-@UseGuards(JwtAuthGuard, PermissionsGuard) // ← Ajout de PermissionsGuard
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SalesController {
   constructor(private readonly service: SalesService) {}
+
+  // ⚠️ Route statique AVANT toute route dynamique pour éviter les collisions
+  @Get('catalog-items')
+  catalogItems(@CurrentUser() user: any) {
+    return this.service.listCatalogItems(user);
+  }
 
   @Get()
   findAll(@CurrentUser() user: any) {

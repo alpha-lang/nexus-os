@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiFetch, logout as apiLogout } from '../../lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 import CommandPalette from '../../components/CommandPalette';
@@ -21,7 +21,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const role = user?.role || 'USER';
   const isOwner = user?.isOwner || false;
   const orgName = user?.organization?.name || '';
-  const activeModules: { name: string; route: string | null }[] = user?.modules || [];
+  const activeModules = useMemo<{ name: string; route: string | null }[]>(() => user?.modules || [], [user]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');

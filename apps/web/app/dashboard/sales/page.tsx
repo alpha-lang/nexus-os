@@ -28,10 +28,12 @@ export default function SalesPage() {
     Promise.all([
       apiFetch('/api/sales', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       apiFetch('/api/partners?type=CUSTOMER', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      apiFetch('/api/sales/catalog-items', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
     ])
-      .then(([s, c]) => {
+      .then(([s, c, cat]) => {
         setSales(Array.isArray(s) ? s : []);
         setCustomers(Array.isArray(c) ? c : []);
+        setCatalogItems(Array.isArray(cat) ? cat : []);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
