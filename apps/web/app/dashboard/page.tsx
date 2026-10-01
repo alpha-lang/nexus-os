@@ -91,22 +91,14 @@ export default function DashboardPage() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   useEffect(() => {
-    apiFetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(setUser)
-      .catch(console.error);
+    Promise.all([
+      apiFetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ])
+      .then(([me, st]) => {
+        setUser(me);
+        setStats(st);
 
-    apiFetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-
-    // Charger Stock uniquement si le module est actif (via /auth/me)
-    apiFetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
-      .catch(() => null)
-      .then(me => {
         const hasStock = (me?.modules || []).some((m: any) => m.route === '/dashboard/stock');
         if (!hasStock) return;
         Promise.all([
@@ -116,18 +108,9 @@ export default function DashboardPage() {
           if (d) setStockDash(d);
           if (Array.isArray(m)) setStockMvts(m.slice(0, 5));
         });
-      });
-
-    // Bloc original neutralise (garde structure)
-    if (false) {
-      Promise.all([
-        apiFetch('/api/stock/dashboard', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null).catch(() => null),
-        apiFetch('/api/stock/movements?limit=5', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).catch(() => []),
-      ]).then(([d, m]) => {
-        if (d) setStockDash(d);
-        if (Array.isArray(m)) setStockMvts(m.slice(0, 5));
-      });
-    }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
   const hour = now.getHours();

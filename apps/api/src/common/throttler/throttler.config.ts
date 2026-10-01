@@ -5,11 +5,17 @@ import Redis from 'ioredis';
 
 export function createThrottlerConfig(): ThrottlerModuleOptions {
   const url = process.env.UPSTASH_REDIS_URL;
-
   const isDev = process.env.NODE_ENV !== 'production';
+
+  // Un seul throttler global : large, pour éviter les abus accidentels.
+  // Les routes sensibles (login, refresh) override avec un @Throttle plus strict.
   const throttlers = [
-    { name: 'default', ttl: 60_000, limit: isDev ? 1000 : 100 },
-    { name: 'auth', ttl: 900_000, limit: isDev ? 100 : 5 },
+    {
+      name: 'default',
+      ttl: 60_000,        // fenêtre : 1 minute
+      limit: isDev ? 100_000 : 300,  // 300 req/min en prod, illimité en dev
+      skipIf: () => isDev,
+    },
   ];
 
   if (url && url.startsWith('rediss://')) {
@@ -22,12 +28,10 @@ export function createThrottlerConfig(): ThrottlerModuleOptions {
       retryStrategy: (times) => Math.min(times * 200, 2000),
     });
 
-    redis.on('error', (err) =>
-      Logger.error(`Redis: ${err.message}`, 'Throttler'),
-    );
-    redis.on('connect', () =>
-      Logger.log('✅ Redis connecté', 'Throttler'),
-    );
+    redis.on('error', (err) => Logger.error(`Redis: ${err.message}`, 'Throttler'));
+    redis.on('connect', () => Logger.log('✅ Redis connecté', 'Throttler'));
+
+    if (isDev) Logger.warn('⚠️  Throttler désactivé en dev', 'Throttler');
 
     return {
       throttlers,
@@ -35,9 +39,6 @@ export function createThrottlerConfig(): ThrottlerModuleOptions {
     };
   }
 
-  Logger.warn(
-    '⚠️  Rate limiting en mémoire (dev only, PAS pour Vercel)',
-    'Throttler',
-  );
+  Logger.warn('⚠️  Rate limiting en mémoire (dev only)', 'Throttler');
   return { throttlers };
 }
