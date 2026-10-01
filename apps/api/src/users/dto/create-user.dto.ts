@@ -1,5 +1,5 @@
 import {
-  IsEmail, IsString, MinLength, IsOptional, IsEnum, IsBoolean, IsUUID,
+  IsEmail, IsString, MinLength, IsOptional, IsEnum,
 } from 'class-validator';
 import { Role } from '@prisma/client';
 
@@ -20,10 +20,10 @@ export class CreateUserDto {
   role?: Role;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   organizationId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   branchId?: string;
 }

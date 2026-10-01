@@ -466,13 +466,6 @@ export class StockService {
     if (filters.supplierId) where.supplierId = filters.supplierId;
     if (filters.isSellable === 'true') where.isSellable = true;
     if (filters.isIngredient === 'true') where.isIngredient = true;
-
-    if (filters.status === 'CRITICAL') {
-      where.AND = [{ currentStock: { gt: 0 } }, { currentStock: { lte: this.prisma.stockItem.fields.minStock } }];
-    } else if (filters.status === 'OUT') {
-      where.currentStock = { lte: 0 };
-    }
-
     if (filters.search) {
       where.OR = [
         { name: { contains: filters.search, mode: 'insensitive' } },
@@ -481,7 +474,7 @@ export class StockService {
       ];
     }
 
-    return this.prisma.stockItem.findMany({
+    let items = await this.prisma.stockItem.findMany({
       where,
       include: {
         supplier: { select: { id: true, name: true } },
@@ -489,6 +482,16 @@ export class StockService {
       },
       orderBy: { name: 'asc' },
     });
+
+    // ⚠️ Filtre CRITICAL/OUT en JS (comparaison currentStock vs minStock)
+    // car Prisma n'a pas de comparaison champ-à-champ dans where
+    if (filters.status === 'CRITICAL') {
+      items = items.filter((i) => i.currentStock > 0 && i.currentStock <= i.minStock);
+    } else if (filters.status === 'OUT') {
+      items = items.filter((i) => i.currentStock <= 0);
+    }
+
+    return items;
   }
 
   async findOneItem(user: any, id: string) {

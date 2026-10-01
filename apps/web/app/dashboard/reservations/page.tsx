@@ -298,7 +298,7 @@ export default function ReservationsPage() {
 
   if (loading) return <div className="flex justify-center items-center h-64">Chargement...</div>;
 
-  const availableRooms = rooms.filter((r) => r.status === 'AVAILABLE' || r.status === 'CLEANING' || editing);
+  const availableRooms = rooms.filter((r) => (editing && r.id === editing.roomId) || r.status === 'AVAILABLE' || r.status === 'CLEANING');
 
   return (
     <div className="space-y-4">

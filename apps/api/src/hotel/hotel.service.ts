@@ -591,7 +591,7 @@ export class HotelService {
   async checkIn(user: any, id: string) {
     if (!this.canWrite(user)) throw new ForbiddenException('Accès refusé');
     const r = await this.findOneReservation(user, id);
-    if (!['CONFIRMED', 'PENDING'].includes(r.status)) {
+    if (!['CONFIRMED', 'PENDING', 'DEPOSIT_PAID', 'QUOTED'].includes(r.status)) {
       throw new BadRequestException('Check-in impossible');
     }
     return this.prisma.$transaction(async (tx) => {
