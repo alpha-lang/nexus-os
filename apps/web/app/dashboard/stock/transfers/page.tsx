@@ -146,7 +146,7 @@ export default function TransfersPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Logistique interne</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Transferts</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Transferts</h1>
           <p className="text-slate-500 mt-1">
             Déplacez du stock entre vos magasins
           </p>
@@ -171,17 +171,17 @@ export default function TransfersPage() {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <div className="bg-slate-900 rounded-2xl p-5 text-white">
           <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Total transferts</p>
-          <p className="text-2xl font-black tabular-nums text-teal-400">{stats.total}</p>
+          <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">{stats.total}</p>
           <p className="text-[10px] text-slate-500 mt-0.5">historique complet</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">30 derniers jours</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{stats.last30d}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{stats.last30d}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">transferts effectués</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Quantité 30j</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{stats.totalQty}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{stats.totalQty}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">unités déplacées</p>
         </div>
       </div>

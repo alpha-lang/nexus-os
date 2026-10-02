@@ -185,7 +185,7 @@ export default function OrdersPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Approvisionnement</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Commandes fournisseur</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Commandes fournisseur</h1>
           <p className="text-slate-500 mt-1">Brouillons · envoyees · receptionnees</p>
         </div>
         <Button onClick={openCreate} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>}>
@@ -197,12 +197,12 @@ export default function OrdersPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-slate-900 rounded-2xl p-4 text-white">
           <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">En cours</p>
-          <p className="text-2xl font-black tabular-nums text-teal-400">{kpis.totalValue.toLocaleString('fr-FR')}<span className="text-sm ml-1">Ar</span></p>
+          <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">{kpis.totalValue.toLocaleString('fr-FR')}<span className="text-sm ml-1">Ar</span></p>
           <p className="text-[10px] text-slate-500 mt-0.5">montant commandé</p>
         </div>
         <div className="bg-white rounded-2xl p-4 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Total</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{kpis.total}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{kpis.total}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">commandes</p>
         </div>
         <div className="bg-white rounded-2xl p-4 border border-slate-200">
@@ -498,7 +498,7 @@ export default function OrdersPage() {
 
             <div className="bg-slate-50 rounded-xl p-4 mb-4">
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2">Montant</p>
-              <p className="text-2xl font-black text-slate-900 tabular-nums">{showReceive.totalAmount.toLocaleString('fr-FR')} Ar</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{showReceive.totalAmount.toLocaleString('fr-FR')} Ar</p>
             </div>
 
             <FormField label="Magasin de reception" required hint="Où sera rangée la marchandise livrée">

@@ -334,7 +334,7 @@ export default function InventoryPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Contrôle physique</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Inventaire</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Inventaire</h1>
           <p className="text-slate-500 mt-1">
             Comparez le stock physique au stock théorique
           </p>
@@ -530,17 +530,17 @@ export default function InventoryPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-slate-900 rounded-2xl p-5 text-white">
               <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Sessions</p>
-              <p className="text-2xl font-black tabular-nums text-teal-400">{historySummary?.totalSessions || 0}</p>
+              <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">{historySummary?.totalSessions || 0}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">inventaires passés</p>
             </div>
             <div className="bg-white rounded-2xl p-5 border border-red-200">
               <p className="text-[10px] text-red-700 uppercase font-black tracking-widest mb-1">Pertes cumulées</p>
-              <p className="text-2xl font-black text-red-600 tabular-nums">{(historySummary?.totalLossValue || 0).toLocaleString('fr-FR')}</p>
+              <p className="text-xl sm:text-2xl font-black text-red-600 tabular-nums">{(historySummary?.totalLossValue || 0).toLocaleString('fr-FR')}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">Ar de manquants</p>
             </div>
             <div className="bg-white rounded-2xl p-5 border border-emerald-200">
               <p className="text-[10px] text-emerald-700 uppercase font-black tracking-widest mb-1">Gains cumulés</p>
-              <p className="text-2xl font-black text-emerald-600 tabular-nums">{(historySummary?.totalGainValue || 0).toLocaleString('fr-FR')}</p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 tabular-nums">{(historySummary?.totalGainValue || 0).toLocaleString('fr-FR')}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">Ar retrouvés</p>
             </div>
             <div className="bg-white rounded-2xl p-5 border border-slate-200">

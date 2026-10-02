@@ -300,7 +300,7 @@ export default function OrganizationsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Multi-tenant</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Organisations</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Organisations</h1>
           <p className="text-slate-500 mt-1">
             {kpis.clients} tenant{kpis.clients > 1 ? 's' : ''} client{kpis.clients > 1 ? 's' : ''} · {kpis.active} actif{kpis.active > 1 ? 's' : ''}
           </p>
@@ -333,22 +333,22 @@ export default function OrganizationsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-slate-900 rounded-2xl p-3 sm:p-4 text-white">
           <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Tenants clients</p>
-          <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">{kpis.clients}</p>
+          <p className="text-xl sm:text-xl sm:text-2xl font-black tabular-nums text-teal-400">{kpis.clients}</p>
           <p className="text-[10px] text-slate-500 mt-0.5">{kpis.active} actifs</p>
         </div>
         <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Utilisateurs</p>
-          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{kpis.totalUsers}</p>
+          <p className="text-xl sm:text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{kpis.totalUsers}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">tous tenants confondus</p>
         </div>
         <div className="bg-white rounded-2xl p-3 sm:p-4 border border-emerald-200">
           <p className="text-[10px] text-emerald-700 uppercase font-black tracking-widest mb-1">MRR total</p>
-          <p className="text-xl sm:text-2xl font-black text-emerald-600 tabular-nums">{kpis.totalMrr.toLocaleString('fr-FR')}</p>
+          <p className="text-xl sm:text-xl sm:text-2xl font-black text-emerald-600 tabular-nums">{kpis.totalMrr.toLocaleString('fr-FR')}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">Ar / mois</p>
         </div>
         <div className="bg-white rounded-2xl p-4 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Total</p>
-          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{kpis.total}</p>
+          <p className="text-xl sm:text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{kpis.total}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">avec interne</p>
         </div>
       </div>
@@ -626,7 +626,7 @@ export default function OrganizationsPage() {
                     </div>
                   )}
                   <div className="absolute -bottom-7 left-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white shadow-lg flex items-center justify-center text-2xl font-black text-slate-900 border-4 border-white">
+                    <div className="w-14 h-14 rounded-2xl bg-white shadow-lg flex items-center justify-center text-xl sm:text-2xl font-black text-slate-900 border-4 border-white">
                       {org.name?.charAt(0).toUpperCase()}
                     </div>
                   </div>

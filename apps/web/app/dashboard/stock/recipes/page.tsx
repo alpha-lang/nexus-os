@@ -116,7 +116,7 @@ export default function RecipesPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Fiches techniques</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Recettes</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Recettes</h1>
           <p className="text-slate-500 mt-1">Cout de revient et marge par plat</p>
         </div>
         <Button onClick={openCreate} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>}>

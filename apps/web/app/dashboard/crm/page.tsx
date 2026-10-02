@@ -33,7 +33,7 @@ export default function CrmOverviewPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Relation client</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">CRM · Vue d'ensemble</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">CRM · Vue d'ensemble</h1>
           <p className="text-slate-500 mt-1">
             Cockpit de votre portefeuille clients et fournisseurs
           </p>
@@ -52,7 +52,7 @@ export default function CrmOverviewPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <a href="/dashboard/crm/partners" className="bg-slate-900 rounded-2xl p-5 text-white hover:shadow-lg transition">
           <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Partenaires</p>
-          <p className="text-3xl font-black tabular-nums text-teal-400">{k.totalPartners || 0}</p>
+          <p className="text-2xl sm:text-3xl font-black tabular-nums text-teal-400">{k.totalPartners || 0}</p>
           <p className="text-[10px] text-slate-500 mt-1">+{k.newThisMonth || 0} ce mois</p>
         </a>
         <a href="/dashboard/crm/partners?type=CUSTOMER" className="bg-white rounded-2xl p-5 border-2 border-emerald-200 hover:shadow-lg transition">

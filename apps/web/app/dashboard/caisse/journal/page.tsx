@@ -389,7 +389,7 @@ export default function JournalCaissePage() {
 
                 <div className="bg-slate-50 rounded-xl p-3 mb-4">
                   <p className="text-[10px] text-slate-500 uppercase font-bold">Solde actuel</p>
-                  <p className="text-2xl font-black text-slate-900">{reg.currentBalance.toLocaleString('fr-FR')} Ar</p>
+                  <p className="text-xl sm:text-2xl font-black text-slate-900">{reg.currentBalance.toLocaleString('fr-FR')} Ar</p>
                   <p className="text-[10px] text-slate-500 mt-1">{reg._count?.movements || 0} mouvement(s)</p>
                 </div>
 

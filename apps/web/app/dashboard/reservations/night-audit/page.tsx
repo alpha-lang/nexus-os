@@ -137,7 +137,7 @@ export default function NightAuditPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl p-5 text-white shadow-lg">
               <p className="text-[10px] uppercase font-black tracking-widest opacity-90 mb-1">Taux occupation</p>
-              <p className="text-3xl font-black tabular-nums leading-none">{summary.occupancyRate || 0}%</p>
+              <p className="text-2xl sm:text-3xl font-black tabular-nums leading-none">{summary.occupancyRate || 0}%</p>
               <p className="text-xs opacity-90 mt-2">
                 {summary.roomsSold || 0} / {summary.totalRooms || 0} chambres vendues
               </p>
@@ -145,7 +145,7 @@ export default function NightAuditPage() {
 
             <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl p-5 text-white shadow-lg">
               <p className="text-[10px] uppercase font-black tracking-widest opacity-90 mb-1">CA total</p>
-              <p className="text-3xl font-black tabular-nums leading-none">
+              <p className="text-2xl sm:text-3xl font-black tabular-nums leading-none">
                 {fmtMoney(revenue.total)}
               </p>
               <p className="text-xs opacity-90 mt-2">Ar de chiffre d'affaires</p>
@@ -153,13 +153,13 @@ export default function NightAuditPage() {
 
             <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-lg">
               <p className="text-[10px] uppercase font-black tracking-widest opacity-90 mb-1">ADR</p>
-              <p className="text-3xl font-black tabular-nums leading-none">{fmtMoney(revenue.adr)}</p>
+              <p className="text-2xl sm:text-3xl font-black tabular-nums leading-none">{fmtMoney(revenue.adr)}</p>
               <p className="text-xs opacity-90 mt-2">Ar prix moyen / chambre</p>
             </div>
 
             <div className="bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl p-5 text-white shadow-lg">
               <p className="text-[10px] uppercase font-black tracking-widest opacity-90 mb-1">RevPAR</p>
-              <p className="text-3xl font-black tabular-nums leading-none">{fmtMoney(revenue.revpar)}</p>
+              <p className="text-2xl sm:text-3xl font-black tabular-nums leading-none">{fmtMoney(revenue.revpar)}</p>
               <p className="text-xs opacity-90 mt-2">Ar revenu / chambre dispo</p>
             </div>
           </div>
@@ -222,7 +222,7 @@ export default function NightAuditPage() {
                 <p className="text-[10px] uppercase font-black tracking-widest opacity-90 mb-1">
                   Total à recouvrer
                 </p>
-                <p className="text-3xl font-black tabular-nums">
+                <p className="text-2xl sm:text-3xl font-black tabular-nums">
                   {fmtMoney(unpaid.total)} <span className="text-lg">Ar</span>
                 </p>
                 <p className="text-xs opacity-90 mt-2">

@@ -33,24 +33,24 @@ export default function CrmAnalyticsPage() {
     <div className="space-y-5">
       <div>
         <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Intelligence CRM</p>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Analytics</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Analytics</h1>
         <p className="text-slate-500 mt-1">Segmentation, croissance et performance</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-slate-900 rounded-2xl p-5 text-white">
           <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">CA total</p>
-          <p className="text-2xl font-black tabular-nums text-teal-400">{(s.totalRevenue || 0).toLocaleString('fr-FR')}</p>
+          <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">{(s.totalRevenue || 0).toLocaleString('fr-FR')}</p>
           <p className="text-[10px] text-slate-500 mt-0.5">Ar cumulés clients</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-emerald-200">
           <p className="text-[10px] text-emerald-700 uppercase font-black tracking-widest mb-1">Actifs</p>
-          <p className="text-2xl font-black text-emerald-600 tabular-nums">{s.activePartners || 0}</p>
+          <p className="text-xl sm:text-2xl font-black text-emerald-600 tabular-nums">{s.activePartners || 0}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">partenaires actifs</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Panier moyen</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{(s.averageRevenuePerClient || 0).toLocaleString('fr-FR')}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{(s.averageRevenuePerClient || 0).toLocaleString('fr-FR')}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">Ar / client</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
@@ -133,7 +133,7 @@ export default function CrmAnalyticsPage() {
                   <span className={`w-2 h-2 rounded-full ${color}`}></span>
                   <span className="text-[10px] text-slate-500 uppercase font-black tracking-wider">{icon} {label.split(' ')[0]}</span>
                 </div>
-                <p className="text-2xl font-black text-slate-900 tabular-nums">{data?.byScore?.[key] || 0}</p>
+                <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{data?.byScore?.[key] || 0}</p>
               </div>
             ))}
           </div>

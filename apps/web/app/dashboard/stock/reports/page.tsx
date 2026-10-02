@@ -61,7 +61,7 @@ export default function ReportsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Intelligence</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Rapports stock</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Rapports stock</h1>
           <p className="text-slate-500 mt-1">Rotation, analyse ABC et historique des prix</p>
         </div>
         <div className="flex gap-2 items-center">
@@ -99,7 +99,7 @@ export default function ReportsPage() {
             </div>
             <div className="bg-white rounded-2xl p-4 border border-slate-200">
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Actifs</p>
-              <p className="text-2xl font-black text-emerald-600 tabular-nums">{rotationStats.active}</p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 tabular-nums">{rotationStats.active}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">articles avec consommation</p>
             </div>
             <div className="bg-white rounded-2xl p-4 border border-slate-200">

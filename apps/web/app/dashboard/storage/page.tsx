@@ -183,7 +183,7 @@ export default function StoragePage() {
       <div className="flex flex-col md:flex-row gap-4 items-start">
         <div className="flex-1">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Systeme de stockage</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             {humanSize(stats.totalUsedMo).v} <span className="text-xl text-slate-400 font-bold">{humanSize(stats.totalUsedMo).u}</span>
             <span className="text-slate-300 mx-2">/</span>
             <span className="text-slate-500 text-2xl">{(stats.totalMaxMo / 1000).toFixed(2)} Go</span>
@@ -198,7 +198,7 @@ export default function StoragePage() {
           <Gauge pct={stats.globalPct} size={88} />
           <div>
             <p className={`text-[10px] font-black tracking-widest ${globalSev.text}`}>USAGE GLOBAL</p>
-            <p className="text-2xl font-black text-slate-900">{stats.globalPct.toFixed(2)}%</p>
+            <p className="text-xl sm:text-2xl font-black text-slate-900">{stats.globalPct.toFixed(2)}%</p>
             <p className="text-[10px] text-slate-500 mt-0.5">
               Reste : {humanSize(stats.totalMaxMo - stats.totalUsedMo).v} {humanSize(stats.totalMaxMo - stats.totalUsedMo).u}
             </p>
@@ -444,7 +444,7 @@ export default function StoragePage() {
                     <div className={`p-4 rounded-2xl border-2 ${sev.border} ${sev.bg}`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className={`text-xs font-black tracking-widest ${sev.text}`}>USAGE</span>
-                        <span className="text-2xl font-black text-slate-900">{pct.toFixed(2)}%</span>
+                        <span className="text-xl sm:text-2xl font-black text-slate-900">{pct.toFixed(2)}%</span>
                       </div>
                       <div className="h-3 bg-white rounded-full overflow-hidden border border-slate-200">
                         <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 0.5)}%`, background: sev.color }}></div>

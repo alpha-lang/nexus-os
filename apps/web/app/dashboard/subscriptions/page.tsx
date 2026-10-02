@@ -257,7 +257,7 @@ export default function SubscriptionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Contrats</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Abonnements</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Abonnements</h1>
           <p className="text-slate-500 mt-1">
             {kpis.total} contrat{kpis.total > 1 ? 's' : ''} · {kpis.active} actif{kpis.active > 1 ? 's' : ''} · {kpis.trial} en essai
           </p>
@@ -590,7 +590,7 @@ export default function SubscriptionsPage() {
 
           <div className="bg-slate-50 rounded-xl p-4 flex items-center justify-between">
             <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Total mensuel</span>
-            <span className="text-2xl font-black text-slate-900">{totalSelected.toLocaleString('fr-FR')} Ar</span>
+            <span className="text-xl sm:text-2xl font-black text-slate-900">{totalSelected.toLocaleString('fr-FR')} Ar</span>
           </div>
         </form>
       </Modal>

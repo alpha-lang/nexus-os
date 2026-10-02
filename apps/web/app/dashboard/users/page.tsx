@@ -200,7 +200,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div className="max-w-4xl mx-auto space-y-5 w-full min-w-0 overflow-x-hidden">
       {toast && (
         <div className="fixed top-20 right-4 z-[100] bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-medium">
           {toast}
@@ -210,7 +210,7 @@ export default function UsersPage() {
       {/* Header épuré */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Repertoire</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Repertoire</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             {users.length} personne{users.length > 1 ? 's' : ''}
             {onlyActive && users.length > 0 && ` · ${users.filter(u => u.isActive).length} active${users.filter(u => u.isActive).length > 1 ? 's' : ''}`}
@@ -238,13 +238,14 @@ export default function UsersPage() {
           placeholder="Rechercher une personne, un email, une organisation..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-slate-200 rounded-2xl text-sm text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-teal-100 focus:border-teal-400 transition"
+          className="w-full max-w-full pl-12 pr-4 py-3.5 bg-white border-2 border-slate-200 rounded-2xl text-sm text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-teal-100 focus:border-teal-400 transition"
         />
       </div>
 
       {/* Segmented control */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex items-center bg-slate-100 rounded-xl p-1">
+      <div className="flex flex-wrap items-center gap-3 min-w-0 w-full">
+        <div className="w-full overflow-x-auto scroll-x pb-1">
+        <div className="inline-flex items-center bg-slate-100 rounded-xl p-1 w-max">
           {SEGMENTS.map(s => (
             <button
               key={s.key}
@@ -261,6 +262,7 @@ export default function UsersPage() {
               </span>
             </button>
           ))}
+          </div>
         </div>
 
         {/* Toggle actifs seulement */}
@@ -274,7 +276,7 @@ export default function UsersPage() {
           <span className="text-xs font-semibold text-slate-600">Actifs uniquement</span>
         </label>
 
-        <div className="ml-auto text-xs text-slate-400 font-bold">
+        <div className="ml-auto text-xs text-slate-400 font-bold shrink-0">
           {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
         </div>
       </div>
@@ -311,7 +313,7 @@ export default function UsersPage() {
                   const rm = roleMeta(u.role);
                   const isMenuOpen = openMenu === u.id;
                   return (
-                    <div key={u.id} className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition relative">
+                    <div key={u.id} className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition relative min-w-0">
                       {/* Avatar rond */}
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0 shadow-sm" style={{ background: rm.color }}>
                         {(u.name?.charAt(0) || u.email?.charAt(0) || '?').toUpperCase()}

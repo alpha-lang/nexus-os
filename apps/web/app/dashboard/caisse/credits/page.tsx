@@ -163,7 +163,7 @@ export default function CreditsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Total credit</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">
             {(stats?.totalCredits || 0).toLocaleString('fr-FR')} <span className="text-sm">Ar</span>
           </p>
           <p className="text-[10px] text-slate-400 mt-1">montant total emis</p>

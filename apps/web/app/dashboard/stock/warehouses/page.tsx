@@ -56,7 +56,7 @@ export default function WarehousesPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Réseau logistique</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Magasins</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Magasins</h1>
           <p className="text-slate-500 mt-1">
             {summary.totalWarehouses || 0} emplacement{(summary.totalWarehouses || 0) > 1 ? 's' : ''} de stockage ·{' '}
             <span className="font-bold text-slate-900">{(summary.totalValue || 0).toLocaleString('fr-FR')} Ar</span> de stock
@@ -77,17 +77,17 @@ export default function WarehousesPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-slate-900 rounded-2xl p-5 text-white">
           <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Magasins</p>
-          <p className="text-2xl font-black tabular-nums text-teal-400">{summary.totalWarehouses || 0}</p>
+          <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">{summary.totalWarehouses || 0}</p>
           <p className="text-[10px] text-slate-500 mt-0.5">emplacements actifs</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Valeur totale</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{(summary.totalValue || 0).toLocaleString('fr-FR')}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{(summary.totalValue || 0).toLocaleString('fr-FR')}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">Ar sur tout le réseau</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Références</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{summary.totalArticles || 0}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{summary.totalArticles || 0}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">articles stockés</p>
         </div>
         <div className={`rounded-2xl p-5 border ${(summary.totalAlerts || 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>

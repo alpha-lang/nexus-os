@@ -200,7 +200,7 @@ export default function PrixPage() {
                       {cat.label}
                     </span>
                     <div className="text-right">
-                      <span className="text-2xl font-black text-slate-900 tabular-nums">
+                      <span className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">
                         {(r.price || 0).toLocaleString('fr-FR')}
                       </span>
                       <span className="text-xs font-bold text-slate-500 ml-1">Ar</span>

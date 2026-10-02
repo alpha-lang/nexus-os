@@ -54,7 +54,7 @@ export default function DocumentsPage() {
     <div className="space-y-5">
       <div>
         <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Relation client</p>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Documents</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Documents</h1>
         <p className="text-slate-500 mt-1">Bibliothèque documentaire liée à vos partenaires</p>
       </div>
 

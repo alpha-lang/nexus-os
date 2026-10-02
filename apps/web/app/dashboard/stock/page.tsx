@@ -429,7 +429,7 @@ export default function StockPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Inventaire</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Stock</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Stock</h1>
           <p className="text-slate-500 mt-1">
             Gerez vos articles, fournisseurs et mouvements de stock
           </p>
@@ -467,7 +467,7 @@ export default function StockPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-slate-900 rounded-2xl p-5 text-white">
           <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Valorisation</p>
-          <p className="text-2xl font-black tabular-nums text-teal-400">
+          <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">
             {humanSize(Math.round(summary.totalValue || 0))}
             <span className="text-sm text-slate-400 ml-1">Ar</span>
           </p>
@@ -475,17 +475,17 @@ export default function StockPage() {
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Articles</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{summary.totalItems || 0}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{summary.totalItems || 0}</p>
           <p className="text-[10px] text-slate-400 mt-1">references gerees</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Magasins</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{summary.warehouses || 0}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{summary.warehouses || 0}</p>
           <p className="text-[10px] text-slate-400 mt-1">zones de stockage</p>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Mouvements 30j</p>
-          <p className="text-2xl font-black text-slate-900 tabular-nums">{summary.movements30d || 0}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{summary.movements30d || 0}</p>
           <p className="text-[10px] text-slate-400 mt-1">
             {summary.incoming30d > 0 ? `+${humanSize(Math.round(summary.incoming30d))} Ar recus` : 'aucune entree'}
           </p>

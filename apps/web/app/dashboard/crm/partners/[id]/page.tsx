@@ -431,7 +431,7 @@ export default function CustomerDetailPage() {
             {/* Bandeau titre */}
             <div className="border-b-4 border-slate-900 px-8 py-4">
               <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight uppercase">
                   {customer.type === 'SUPPLIER' ? 'Fiche fournisseur' : customer.type === 'BOTH' ? 'Fiche partenaire' : "Fiche d'identité client"}
                 </h1>
                 <div className="text-right text-xs text-slate-500">

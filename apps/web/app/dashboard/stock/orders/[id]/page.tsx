@@ -486,7 +486,7 @@ export default function OrderDetailPage() {
           </div>
           <div className="text-right shrink-0">
             <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Total commande</p>
-            <p className="text-2xl font-black text-slate-900 tabular-nums">{order.totalAmount.toLocaleString('fr-FR')} <span className="text-sm">Ar</span></p>
+            <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{order.totalAmount.toLocaleString('fr-FR')} <span className="text-sm">Ar</span></p>
             {order.status === 'PARTIAL' && (
               <p className="text-[10px] text-amber-700 font-bold mt-0.5">
                 {totalReceived.toLocaleString('fr-FR')} Ar recus

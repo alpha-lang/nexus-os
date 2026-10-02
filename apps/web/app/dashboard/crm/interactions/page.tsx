@@ -60,7 +60,7 @@ export default function InteractionsPage() {
     <div className="space-y-5">
       <div>
         <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Relation client</p>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Interactions</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Interactions</h1>
         <p className="text-slate-500 mt-1">Historique des échanges avec vos partenaires</p>
       </div>
 

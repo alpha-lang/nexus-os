@@ -940,7 +940,7 @@ export default function CaissePage() {
               </div>
               <div>
                 <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Chiffre d'affaires</p>
-                <p className="text-2xl font-black tabular-nums text-teal-400">{histTotals.ca.toLocaleString('fr-FR')} <span className="text-sm text-slate-400">Ar</span></p>
+                <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">{histTotals.ca.toLocaleString('fr-FR')} <span className="text-sm text-slate-400">Ar</span></p>
               </div>
               <div>
                 <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Panier moyen</p>

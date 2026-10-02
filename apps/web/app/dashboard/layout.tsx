@@ -502,7 +502,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* MAIN */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${collapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 min-w-0 ${collapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
         <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-30 h-16 flex items-center justify-between px-4 sm:px-6 shadow-sm">
           <div className="flex items-center gap-4">
             <button
@@ -539,7 +539,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden w-full min-w-0">{children}</main>
         <CommandPalette />
       </div>
     </div>

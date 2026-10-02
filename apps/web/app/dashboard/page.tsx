@@ -260,17 +260,17 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <a href="/dashboard/subscriptions" className="bg-white rounded-2xl border border-emerald-200 p-4 hover:shadow-md transition">
               <p className="text-[10px] text-emerald-700 uppercase font-black tracking-widest mb-1">Actifs</p>
-              <p className="text-2xl font-black text-slate-900 tabular-nums">{stats.subscriptions.active}</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{stats.subscriptions.active}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">abonnements payants</p>
             </a>
             <a href="/dashboard/subscriptions" className="bg-white rounded-2xl border border-blue-200 p-4 hover:shadow-md transition">
               <p className="text-[10px] text-blue-700 uppercase font-black tracking-widest mb-1">Essais</p>
-              <p className="text-2xl font-black text-slate-900 tabular-nums">{stats.subscriptions.trial}</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{stats.subscriptions.trial}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">en periode d essai</p>
             </a>
             <a href="/dashboard/subscriptions" className="bg-white rounded-2xl border border-amber-200 p-4 hover:shadow-md transition">
               <p className="text-[10px] text-amber-700 uppercase font-black tracking-widest mb-1">Suspendus</p>
-              <p className="text-2xl font-black text-slate-900 tabular-nums">{stats.subscriptions.suspended}</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{stats.subscriptions.suspended}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">a reactiver</p>
             </a>
             <a href="/dashboard/billing" className="relative bg-white rounded-2xl border border-red-200 p-4 hover:shadow-md transition">
@@ -280,7 +280,7 @@ export default function DashboardPage() {
                 </span>
               )}
               <p className="text-[10px] text-red-700 uppercase font-black tracking-widest mb-1">En attente</p>
-              <p className="text-2xl font-black text-slate-900 tabular-nums">{stats.revenue.pendingCount}</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{stats.revenue.pendingCount}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">factures a encaisser</p>
             </a>
           </div>
@@ -538,7 +538,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-2xl font-black text-slate-900 tabular-nums">{stats.occupancy.occupiedRooms}</span>
+                <span className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{stats.occupancy.occupiedRooms}</span>
                 <span className="text-base font-bold text-slate-300 tabular-nums">/ {stats.occupancy.totalRooms}</span>
                 <span className="text-[10px] text-slate-500 ml-1">chambres</span>
               </div>

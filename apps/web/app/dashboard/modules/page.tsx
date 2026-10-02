@@ -234,7 +234,7 @@ export default function ModulesPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Catalogue</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Modules & Services</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Modules & Services</h1>
           <p className="text-slate-500 mt-1">
             {kpis.total} module{kpis.total > 1 ? 's' : ''} · {kpis.paid} payant{kpis.paid > 1 ? 's' : ''} · {kpis.active} actif{kpis.active > 1 ? 's' : ''}
           </p>
@@ -250,26 +250,26 @@ export default function ModulesPage() {
       </div>
 
       {/* KPI */}
-      <div className="bg-slate-900 rounded-2xl p-5 text-white shadow-lg">
+      <div className="bg-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-lg">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Total</p>
-            <p className="text-2xl font-black">{kpis.total}</p>
+            <p className="text-xl sm:text-2xl font-black">{kpis.total}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">modules au catalogue</p>
           </div>
           <div>
             <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Actifs</p>
-            <p className="text-2xl font-black text-emerald-400">{kpis.active}</p>
+            <p className="text-xl sm:text-2xl font-black text-emerald-400">{kpis.active}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">disponibles a la vente</p>
           </div>
           <div>
             <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Prix moyen</p>
-            <p className="text-2xl font-black text-amber-400">{Math.round(kpis.avgPrice).toLocaleString('fr-FR')}</p>
+            <p className="text-xl sm:text-2xl font-black text-amber-400">{Math.round(kpis.avgPrice).toLocaleString('fr-FR')}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Ar sur les payants</p>
           </div>
           <div>
             <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">CA potentiel</p>
-            <p className="text-2xl font-black text-cyan-400">{kpis.totalValue.toLocaleString('fr-FR')}</p>
+            <p className="text-xl sm:text-2xl font-black text-cyan-400">{kpis.totalValue.toLocaleString('fr-FR')}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Ar / tenant / mois</p>
           </div>
         </div>
@@ -332,7 +332,7 @@ export default function ModulesPage() {
         </div>
 
         {/* Filter chips */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 scroll-x">
           <button
             onClick={() => setFilterTarget('ALL')}
             className={'px-3 py-1.5 rounded-lg text-xs font-bold transition ' + (filterTarget === 'ALL' ? 'bg-slate-900 text-white shadow' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-400')}

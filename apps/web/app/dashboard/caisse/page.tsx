@@ -60,7 +60,7 @@ export default function CaisseOverviewPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="text-xs font-black text-teal-600 uppercase tracking-widest mb-1">Encaissement</p>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Caisse · Vue d'ensemble</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Caisse · Vue d'ensemble</h1>
           <p className="text-slate-500 mt-1">
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
@@ -106,7 +106,7 @@ export default function CaisseOverviewPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-slate-900 rounded-2xl p-5 text-white">
           <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Solde total</p>
-          <p className="text-2xl font-black tabular-nums text-teal-400">{(k.totalBalance || 0).toLocaleString('fr-FR')}</p>
+          <p className="text-xl sm:text-2xl font-black tabular-nums text-teal-400">{(k.totalBalance || 0).toLocaleString('fr-FR')}</p>
           <p className="text-[10px] text-slate-500 mt-0.5">
             {k.totalRegisters || 0} caisse{k.totalRegisters > 1 ? 's' : ''} · {k.openRegisters || 0} ouverte{k.openRegisters > 1 ? 's' : ''}
           </p>
@@ -114,13 +114,13 @@ export default function CaisseOverviewPage() {
 
         <div className="bg-white rounded-2xl p-5 border border-emerald-200">
           <p className="text-[10px] text-emerald-700 uppercase font-black tracking-widest mb-1">Encaissé du jour</p>
-          <p className="text-2xl font-black text-emerald-600 tabular-nums">+{(k.todayIn || 0).toLocaleString('fr-FR')}</p>
+          <p className="text-xl sm:text-2xl font-black text-emerald-600 tabular-nums">+{(k.todayIn || 0).toLocaleString('fr-FR')}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{k.todayMovementsCount || 0} mouvement{k.todayMovementsCount > 1 ? 's' : ''}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-5 border border-red-200">
           <p className="text-[10px] text-red-700 uppercase font-black tracking-widest mb-1">Sorties du jour</p>
-          <p className="text-2xl font-black text-red-600 tabular-nums">-{(k.todayOut || 0).toLocaleString('fr-FR')}</p>
+          <p className="text-xl sm:text-2xl font-black text-red-600 tabular-nums">-{(k.todayOut || 0).toLocaleString('fr-FR')}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">dépenses / retraits</p>
         </div>
 
