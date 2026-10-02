@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
+import { SuspendOrganizationDto } from './dto/suspend-organization.dto';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -39,6 +40,24 @@ export class OrganizationsController {
     @Req() req: any,
   ) {
     return this.service.update(id, dto, req.user);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  SUSPENSION / RÉACTIVATION
+  // ═══════════════════════════════════════════════════════════
+
+  @Patch(':id/suspend')
+  suspend(
+    @Param('id') id: string,
+    @Body() dto: SuspendOrganizationDto,
+    @Req() req: any,
+  ) {
+    return this.service.suspend(id, dto.reason, req.user);
+  }
+
+  @Patch(':id/reactivate')
+  reactivate(@Param('id') id: string, @Req() req: any) {
+    return this.service.reactivate(id, req.user);
   }
 
   @Delete(':id')

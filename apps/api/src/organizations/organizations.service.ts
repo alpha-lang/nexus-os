@@ -219,6 +219,51 @@ export class OrganizationsService {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════
+  //  SUSPENSION / RÉACTIVATION
+  // ═══════════════════════════════════════════════════════════
+
+  async suspend(id: string, reason: string, user: any) {
+    this.assertCanManage(user);
+
+    const org = await this.prisma.organization.findUnique({ where: { id } });
+    if (!org) throw new NotFoundException('Organisation introuvable');
+    if (org.type === 'INTERNE') {
+      throw new ForbiddenException('Impossible de suspendre l\'organisation interne');
+    }
+    if (org.status === 'SUSPENDED') {
+      throw new BadRequestException('Organisation déjà suspendue');
+    }
+
+    return this.prisma.organization.update({
+      where: { id },
+      data: {
+        status: 'SUSPENDED',
+        suspendedReason: reason.trim(),
+        suspendedAt: new Date(),
+      },
+    });
+  }
+
+  async reactivate(id: string, user: any) {
+    this.assertCanManage(user);
+
+    const org = await this.prisma.organization.findUnique({ where: { id } });
+    if (!org) throw new NotFoundException('Organisation introuvable');
+    if (org.status !== 'SUSPENDED') {
+      throw new BadRequestException('Organisation non suspendue');
+    }
+
+    return this.prisma.organization.update({
+      where: { id },
+      data: {
+        status: 'ACTIVE',
+        suspendedReason: null,
+        suspendedAt: null,
+      },
+    });
+  }
+
   async remove(id: string, user: any) {
     this.assertCanManage(user);
 

@@ -60,6 +60,30 @@ export class AuthService {
 
     if (!user.isActive) throw new UnauthorizedException('Compte désactivé');
 
+    // ═══ Vérifier que l'organisation n'est pas suspendue ═══
+    if (user.organizationId) {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: user.organizationId },
+        select: {
+          id: true, name: true, slug: true,
+          status: true, suspendedReason: true, suspendedAt: true,
+        },
+      });
+      if (org && org.status === 'SUSPENDED') {
+        throw new UnauthorizedException({
+          statusCode: 401,
+          code: 'ORG_SUSPENDED',
+          message: `Votre organisation "${org.name}" est suspendue. Contactez le support.`,
+          organization: {
+            name: org.name,
+            slug: org.slug,
+            reason: org.suspendedReason || 'Non précisée',
+            suspendedAt: org.suspendedAt,
+          },
+        });
+      }
+    }
+
     const isValid = await bcrypt.compare(dto.password, user.password);
     if (!isValid) throw new UnauthorizedException('Identifiants invalides');
 

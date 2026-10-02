@@ -347,14 +347,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (role === 'SUPER_ADMIN') {
     menuItems = [...baseMenu, ...adminMenu];
   } else {
+    // ═══ Fix doublons : ignorer les modules dont la route est déjà dans un sous-menu ═══
+    // Seuls les SOUS-CHEMINS sont filtrés (ex: /dashboard/caisse/pos)
+    // On garde les chemins parents (ex: /dashboard/caisse) qui doivent
+    // rester visibles en niveau 1 avec leurs sous-menus déroulants.
+    const SUBMENU_PATHS = new Set(
+      Object.entries(SUBMENUS).flatMap(([parentPath, subs]) =>
+        subs
+          .filter((sub) => sub.path !== parentPath) // ← on exclut le parent
+          .map((sub) => sub.path),
+      ),
+    );
+
     activeModules.forEach((mod) => {
       const route = mod.route && mod.route.trim() !== '' ? mod.route : `/dashboard/${slugify(mod.name)}`;
+
+      // Ignore si ce module est déjà rendu dans un sous-menu (ex: Housekeeping
+      // est dans le sous-menu de Réservation, donc pas besoin en niveau 1)
+      if (SUBMENU_PATHS.has(route)) return;
+
       menuItems.push({
         path: route,
         label: mod.name,
         icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
       });
     });
+
     if (menuItems.length === 1) {
       menuItems.push({
         path: '/dashboard/modules',

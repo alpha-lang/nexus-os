@@ -46,16 +46,28 @@ function aboMeta(s: string | null) {
   return { label: 'Aucun', color: '#94a3b8' };
 }
 
-function getActiveAbo(org: any): { status: string | null; mrr: number } {
+function getActiveAbo(org: any): {
+  status: string | null;
+  mrr: number;        // Revenu RÉEL (uniquement si ACTIVE)
+  pipeline: number;   // Revenu POTENTIEL (si TRIAL)
+} {
   const subs = org.subscriptions || [];
-  if (subs.length === 0) return { status: null, mrr: 0 };
+  if (subs.length === 0) return { status: null, mrr: 0, pipeline: 0 };
+
   const active = subs.find((s: any) => s.status === 'ACTIVE')
     || subs.find((s: any) => s.status === 'TRIAL')
     || subs[0];
-  const mrr = (active.activeModules || [])
+
+  const modulesTotal = (active.activeModules || [])
     .filter((am: any) => am.isActive)
     .reduce((sum: number, am: any) => sum + (am.module?.price || 0), 0);
-  return { status: active.status, mrr };
+
+  // MRR = uniquement si l'abonnement est ACTIVE
+  const mrr = active.status === 'ACTIVE' ? modulesTotal : 0;
+  // Pipeline = uniquement si TRIAL (revenus futurs potentiels)
+  const pipeline = active.status === 'TRIAL' ? modulesTotal : 0;
+
+  return { status: active.status, mrr, pipeline };
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -109,6 +121,14 @@ export default function OrganizationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+  // Suspend modal
+  const [suspendModal, setSuspendModal] = useState<any>(null);
+  const [reactivateModal, setReactivateModal] = useState<any>(null);
+  const [reactivating, setReactivating] = useState(false);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspending, setSuspending] = useState(false);
+  const [suspendError, setSuspendError] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -200,6 +220,69 @@ export default function OrganizationsPage() {
     await load();
   }
 
+  // ═══ Suspend / Reactivate ═══
+  function openSuspendModal(org: any) {
+    setOpenMenu(null);
+    setSuspendModal(org);
+    setSuspendReason('');
+    setSuspendError(null);
+  }
+
+  async function confirmSuspend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!suspendModal) return;
+    setSuspending(true);
+    setSuspendError(null);
+
+    try {
+      const res = await apiFetch(`/api/organizations/${suspendModal.id}/suspend`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: suspendReason }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Erreur');
+      }
+
+      showToast(`Organisation "${suspendModal.name}" suspendue`);
+      setSuspendModal(null);
+      setSuspendReason('');
+      await load();
+    } catch (err: any) {
+      setSuspendError(err.message);
+    } finally {
+      setSuspending(false);
+    }
+  }
+
+  function openReactivateModal(org: any) {
+    setOpenMenu(null);
+    setReactivateModal(org);
+  }
+
+  async function confirmReactivate() {
+    if (!reactivateModal) return;
+    setReactivating(true);
+    try {
+      const res = await apiFetch(`/api/organizations/${reactivateModal.id}/reactivate`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        showToast(`Organisation "${reactivateModal.name}" réactivée`);
+        setReactivateModal(null);
+        await load();
+      } else {
+        const d = await res.json();
+        showToast(d.message || 'Erreur');
+      }
+    } finally {
+      setReactivating(false);
+    }
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('desc'); }
@@ -268,8 +351,9 @@ export default function OrganizationsPage() {
     const clientOrgs = organizations.filter(o => o.type !== 'INTERNE');
     const active = clientOrgs.filter(o => (o.status || 'ACTIVE') === 'ACTIVE').length;
     const totalMrr = clientOrgs.reduce((s, o) => s + getActiveAbo(o).mrr, 0);
+    const totalPipeline = clientOrgs.reduce((s, o) => s + getActiveAbo(o).pipeline, 0);
     const totalUsers = organizations.reduce((s, o) => s + (o._count?.users || 0), 0);
-    return { total, clients: clientOrgs.length, active, totalMrr, totalUsers };
+    return { total, clients: clientOrgs.length, active, totalMrr, totalPipeline, totalUsers };
   }, [organizations]);
 
   function exportCsv() {
@@ -511,7 +595,7 @@ export default function OrganizationsPage() {
                   <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider text-left">Abo.</th>
                   <Th sortKey="mrr" current={sortKey} dir={sortDir} onSort={toggleSort} align="right">MRR</Th>
                   <Th sortKey="createdAt" current={sortKey} dir={sortDir} onSort={toggleSort}>Créée</Th>
-                  <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center w-12"></th>
+                  <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center w-32">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -557,42 +641,62 @@ export default function OrganizationsPage() {
                           {abm.label}
                         </span>
                       </td>
-                      <td className="p-3 text-right font-black tabular-nums text-slate-900 whitespace-nowrap">
-                        {abo.mrr > 0 ? `${abo.mrr.toLocaleString('fr-FR')} Ar` : <span className="text-slate-300">—</span>}
+                      <td className="p-3 text-right font-black tabular-nums whitespace-nowrap">
+                        {abo.mrr > 0 ? (
+                          <span className="text-emerald-600">{abo.mrr.toLocaleString('fr-FR')} Ar</span>
+                        ) : abo.pipeline > 0 ? (
+                          <span className="text-amber-600 text-xs italic" title="Pipeline (essai en cours)">
+                            {abo.pipeline.toLocaleString('fr-FR')} Ar*
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
                       </td>
                       <td className="p-3 text-xs text-slate-500 whitespace-nowrap">
                         {new Date(org.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
                       </td>
-                      <td className="p-3 text-center relative">
-                        {isOwner && (
+                      <td className="p-3">
+                        <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={(e) => { e.stopPropagation(); setOpenMenu(isMenuOpen ? null : org.id); }}
-                            className="w-7 h-7 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition opacity-0 group-hover:opacity-100"
+                            onClick={() => openEdit(org)}
+                            title="Modifier"
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 flex items-center justify-center transition"
                           >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
-                        )}
-                        {isMenuOpen && (
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="absolute right-2 top-full mt-1 w-40 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-20 text-left"
+                          {(org.status || 'ACTIVE') === 'ACTIVE' ? (
+                            <button
+                              onClick={() => openSuspendModal(org)}
+                              title="Suspendre"
+                              className="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                              </svg>
+                            </button>
+                          ) : org.status === 'SUSPENDED' ? (
+                            <button
+                              onClick={() => openReactivateModal(org)}
+                              title="Réactiver"
+                              className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </button>
+                          ) : null}
+                          <button
+                            onClick={() => setOrgToDelete(org)}
+                            title="Supprimer"
+                            className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
                           >
-                            <button
-                              onClick={() => { setOpenMenu(null); openEdit(org); }}
-                              className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
-                            >
-                              Modifier
-                            </button>
-                            <button
-                              onClick={() => { setOpenMenu(null); setOrgToDelete(org); }}
-                              className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition border-t border-slate-100"
-                            >
-                              Supprimer
-                            </button>
-                          </div>
-                        )}
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -633,6 +737,11 @@ export default function OrganizationsPage() {
                       {isMenuOpen && (
                         <div onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-20 text-left">
                           <button onClick={() => { setOpenMenu(null); openEdit(org); }} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">Modifier</button>
+                          {(org.status || 'ACTIVE') === 'ACTIVE' ? (
+                            <button onClick={() => openSuspendModal(org)} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-amber-600 hover:bg-amber-50 transition border-t border-slate-100">Suspendre</button>
+                          ) : org.status === 'SUSPENDED' ? (
+                            <button onClick={() => openReactivateModal(org)} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition border-t border-slate-100">Réactiver</button>
+                          ) : null}
                           <button onClick={() => { setOpenMenu(null); setOrgToDelete(org); }} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition border-t border-slate-100">Supprimer</button>
                         </div>
                       )}
@@ -716,6 +825,14 @@ export default function OrganizationsPage() {
         </div>
       )}
 
+      {/* Légende MRR vs Pipeline */}
+      {kpis.totalPipeline > 0 && (
+        <div className="text-[10px] text-slate-400 text-right -mt-2 px-2">
+          <span className="text-emerald-600 font-bold">MRR</span> = abonnement actif ·{' '}
+          <span className="text-amber-600 font-bold">*</span> = pipeline (essai, non compté dans le MRR)
+        </div>
+      )}
+
       {/* Modal create/edit */}
       <OrganizationWizard
         open={showWizard}
@@ -776,6 +893,105 @@ export default function OrganizationsPage() {
             <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} />
           </FormField>
         </form>
+      </Modal>
+
+      {/* Modal Suspend */}
+      <Modal
+        open={!!suspendModal}
+        onClose={() => { setSuspendModal(null); setSuspendReason(''); setSuspendError(null); }}
+        title="Suspendre l'organisation"
+        subtitle={suspendModal?.name || ''}
+        icon={<span className="text-2xl">⚠️</span>}
+        size="md"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setSuspendModal(null); setSuspendReason(''); setSuspendError(null); }}>
+              Annuler
+            </Button>
+            <button
+              type="submit"
+              form="suspend-form"
+              disabled={suspending || suspendReason.trim().length < 5}
+              className="flex-1 bg-gradient-to-r from-amber-500 to-red-500 text-white py-2.5 rounded-xl font-bold transition disabled:opacity-50"
+            >
+              {suspending ? 'Suspension...' : 'Suspendre l\'organisation'}
+            </button>
+          </div>
+        }
+      >
+        <form id="suspend-form" onSubmit={confirmSuspend} className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+            <strong>⚠️ Conséquences immédiates :</strong>
+            <ul className="list-disc ml-5 mt-2 space-y-1">
+              <li>Les utilisateurs ne pourront plus se connecter</li>
+              <li>Ils verront le motif ci-dessous à la tentative de connexion</li>
+              <li>Les données restent intactes</li>
+            </ul>
+          </div>
+
+          {suspendError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+              {suspendError}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">
+              Motif de suspension <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={suspendReason}
+              onChange={(e) => setSuspendReason(e.target.value)}
+              rows={4}
+              placeholder="Ex : Facture impayée — 3 mois de retard (150 000 Ar)"
+              minLength={5}
+              maxLength={500}
+              required
+              className="w-full px-4 py-3 bg-white border-2 border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition resize-none"
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              {suspendReason.length} / 500 caractères
+            </p>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Réactiver */}
+      <Modal
+        open={!!reactivateModal}
+        onClose={() => setReactivateModal(null)}
+        title="Réactiver l'organisation"
+        subtitle={reactivateModal?.name || ''}
+        icon={<span className="text-2xl">✅</span>}
+        size="sm"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setReactivateModal(null)}>
+              Annuler
+            </Button>
+            <button
+              type="button"
+              onClick={confirmReactivate}
+              disabled={reactivating}
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 text-white py-2.5 rounded-xl font-bold transition disabled:opacity-50"
+            >
+              {reactivating ? 'Réactivation...' : '✓ Réactiver'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+            <p className="text-sm text-emerald-800 leading-relaxed">
+              L&apos;organisation <strong>{reactivateModal?.name}</strong> sera de nouveau accessible.
+              Les utilisateurs pourront se connecter normalement.
+            </p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs text-slate-600 flex items-start gap-2">
+            <span className="text-base">💡</span>
+            <p>Le motif de suspension précédent sera effacé. Vous pourrez suspendre à nouveau avec un nouveau motif à tout moment.</p>
+          </div>
+        </div>
       </Modal>
 
       <ConfirmDialog

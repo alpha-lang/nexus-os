@@ -35,6 +35,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         // Préserver les champs métier additionnels (code, organizations…)
         if (r.code) extra.code = r.code;
         if (r.organizations) extra.organizations = r.organizations;
+        if (r.organization) extra.organization = r.organization;
         if (r.error && typeof r.error === 'string' && !extra.code) {
           extra.code = r.error;
         }

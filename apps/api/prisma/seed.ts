@@ -90,7 +90,6 @@ async function main() {
     { name: 'Réservation',   route: '/dashboard/reservations',                    price: 25000, types: 'HOTEL', status: 'ACTIVE' },
     { name: 'Housekeeping',  route: '/dashboard/reservations/housekeeping',       price: 15000, types: 'HOTEL', status: 'ACTIVE' },
     { name: 'Night Audit',   route: '/dashboard/reservations/night-audit',        price: 15000, types: 'HOTEL', status: 'ACTIVE' },
-    { name: 'Restaurant',    route: '/dashboard/caisse/pos',                      price: 20000, types: 'HOTEL,RESTAURANT', status: 'ACTIVE' },
     { name: 'Spa',           route: '/dashboard/spa',                             price: 20000, types: 'HOTEL', status: 'INACTIVE' },
 
     // ══════ COMMERCE ══════
