@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ApiKeyOrJwtGuard } from './common/guards/api-key.guard';
 import { ScopeGuard } from './common/guards/scope.guard';
 import { GuardsModule } from './common/guards/guards.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { createThrottlerConfig } from './common/throttler/throttler.config';
 
@@ -68,6 +69,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
     ChangelogModule,
     ApiKeysModule,
     GuardsModule,
+    WebhooksModule,
     JwtModule.register({ secret: process.env.JWT_SECRET }),
   ],
   providers: [

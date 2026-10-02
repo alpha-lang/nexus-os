@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException, ConflictException, B
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { paginate } from '../common/pagination/paginate';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class CustomersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private webhooks: WebhooksService,
+  ) {}
 
   private async isInternalOrg(user: any) {
     if (!user.organizationId) return user.role === 'SUPER_ADMIN';
@@ -32,7 +36,7 @@ export class CustomersService {
       throw new BadRequestException('Le nom est requis');
     }
 
-    return this.prisma.partner.create({
+    const partner = await this.prisma.partner.create({
       data: {
         type,
         name: data.name.trim(),
@@ -48,6 +52,18 @@ export class CustomersService {
         organizationId: orgId,
       },
     });
+
+    // Fire & forget
+    this.webhooks.dispatch(orgId, 'partner.created', {
+      id: partner.id,
+      name: partner.name,
+      email: partner.email,
+      phone: partner.phone,
+      type: partner.type,
+      createdAt: partner.createdAt,
+    });
+
+    return partner;
   }
 
   // ═══════════════════════════════════════════════════════
