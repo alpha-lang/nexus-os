@@ -305,6 +305,7 @@ model Module {
   pricing        Json?
   status         String       @default("ACTIVE")
   route          String?
+  sortOrder      Int          @default(0)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())

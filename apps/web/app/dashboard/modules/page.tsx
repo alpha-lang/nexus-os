@@ -2,6 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { apiFetch, unwrap } from '../../../lib/api';
+import {
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent,
+  PointerSensor, closestCenter, useSensor, useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select, Textarea } from '../../../components/ui';
 
@@ -20,6 +28,20 @@ function priceTier(price: number) {
 
 type ViewMode = 'grid' | 'table';
 type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
+
+function SortableRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+      {children}
+    </div>
+  );
+}
 
 export default function ModulesPage() {
   const [modules, setModules] = useState<any[]>([]);
@@ -40,6 +62,8 @@ export default function ModulesPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const [name, setName] = useState('');
   const [types, setTypes] = useState<string[]>([]);
@@ -92,6 +116,35 @@ export default function ModulesPage() {
   }
 
   function openCreate() { resetForm(); setShowModal(true); }
+
+  // ═══ DRAG & DROP ═══
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveDragId(null);
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = modules.findIndex((m) => m.id === active.id);
+    const newIndex = modules.findIndex((m) => m.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(modules, oldIndex, newIndex);
+    setModules(reordered);
+
+    // Persist : réordonner + mettre à jour sortOrder
+    try {
+      await apiFetch('/api/modules/reorder', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: reordered.map((m, i) => ({ id: m.id, sortOrder: i })),
+        }),
+      });
+      showToast('Ordre enregistré');
+    } catch {
+      showToast('Erreur lors de la sauvegarde');
+      await load();
+    }
+  }
 
   function openEdit(m: any) {
     setEditing(m);
@@ -403,6 +456,13 @@ export default function ModulesPage() {
         </div>
       ) : view === 'grid' ? (
         // ═══════════ VUE GRILLE ═══════════
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={(e) => setActiveDragId(e.active.id as string)}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={pageItems.map((m) => m.id)} strategy={verticalListSortingStrategy}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {pageItems.map(m => {
             const tier = priceTier(m.price || 0);
@@ -411,7 +471,8 @@ export default function ModulesPage() {
             const isMenuOpen = openMenu === m.id;
 
             return (
-              <div key={m.id} className="group relative bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-150">
+              <SortableRow key={m.id} id={m.id}>
+              <div className="group relative bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-150">
                 <div className="flex items-start gap-3 p-4 pb-2">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm shrink-0 shadow-md" style={{ background: tier.color }}>
                     {m.name?.charAt(0).toUpperCase()}
@@ -483,9 +544,12 @@ export default function ModulesPage() {
                   )}
                 </div>
               </div>
+              </SortableRow>
             );
           })}
         </div>
+          </SortableContext>
+        </DndContext>
       ) : (
         // ═══════════ VUE TABLEAU ═══════════
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">

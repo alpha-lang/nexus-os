@@ -23,6 +23,11 @@ export class ModulesController {
     return this.service.findOne(id, user);
   }
 
+  @Post('reorder')
+  reorder(@Body() body: { items: { id: string; sortOrder: number }[] }, @CurrentUser() user: any) {
+    return this.service.reorder(user, body.items || []);
+  }
+
   @Post()
   create(@Body() dto: CreateModuleDto, @CurrentUser() user: any) {
     return this.service.create(dto, user);

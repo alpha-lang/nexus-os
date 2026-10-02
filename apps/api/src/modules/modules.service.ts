@@ -46,21 +46,71 @@ export class ModulesService {
   async findAll(user: any, type?: string) {
     const isSuperAdmin = user.role === 'SUPER_ADMIN' && user.isOwner;
 
-    // Super admin : voit tous les modules, possibilité de filtrer par type
+    // ─── Super Admin : voit tous les modules + stats ───
     if (isSuperAdmin) {
+      const where: any = {};
       if (type) {
-        return this.prisma.module.findMany({
-          where: {
-            status: 'ACTIVE',
-            OR: [{ types: { contains: type } }, { types: null }],
-          },
-          orderBy: { name: 'asc' },
-        });
+        where.OR = [{ types: { contains: type } }, { types: null }];
       }
-      return this.prisma.module.findMany({ orderBy: { name: 'asc' } });
+
+      const modules = await this.prisma.module.findMany({
+        where,
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        include: {
+          subscriptionModules: {
+            where: { isActive: true, subscription: { status: 'ACTIVE' } },
+            select: {
+              id: true,
+              subscription: {
+                select: {
+                  organizationId: true,
+                  organization: { select: { type: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Enrichir avec stats
+      return modules.map((m) => {
+        const activeModules = m.subscriptionModules || [];
+        const subscriberCount = new Set(
+          activeModules.map((am) => am.subscription?.organizationId).filter(Boolean),
+        ).size;
+
+        // MRR généré : somme des prix réellement facturés par tenant (via pricing)
+        const mrrGenerated = activeModules.reduce((sum, am) => {
+          const orgType = am.subscription?.organization?.type;
+          return sum + this.resolvePrice(m, orgType);
+        }, 0);
+
+        const ageInDays = Math.floor(
+          (Date.now() - new Date(m.createdAt).getTime()) / 86400000,
+        );
+
+        return {
+          id: m.id,
+          name: m.name,
+          types: m.types,
+          description: m.description,
+          price: m.price,
+          pricing: m.pricing,
+          status: m.status,
+          route: m.route,
+          sortOrder: m.sortOrder,
+          organizationId: m.organizationId,
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
+          // Stats
+          subscriberCount,
+          mrrGenerated,
+          ageInDays,
+        };
+      });
     }
 
-    // Autres utilisateurs : on filtre selon le type de leur organisation
+    // ─── Tenant : filtre par type d'org ───
     let orgType = type;
     if (!orgType && user.organizationId) {
       const org = await this.prisma.organization.findUnique({
@@ -81,8 +131,30 @@ export class ModulesService {
             ] }
           : {}),
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
+  }
+
+  /**
+   * Réordonne les modules en masse (drag&drop).
+   * Body : [{ id, sortOrder }, ...]
+   */
+  async reorder(user: any, items: { id: string; sortOrder: number }[]) {
+    if (!user.isOwner || user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Seul le Super Admin Owner peut réordonner.');
+    }
+
+    // Transaction : update en masse
+    await this.prisma.$transaction(
+      items.map((it) =>
+        this.prisma.module.update({
+          where: { id: it.id },
+          data: { sortOrder: it.sortOrder },
+        }),
+      ),
+    );
+
+    return { success: true, count: items.length };
   }
 
   async findOne(id: string, user: any) {
