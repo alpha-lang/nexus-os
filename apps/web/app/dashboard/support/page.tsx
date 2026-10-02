@@ -333,7 +333,7 @@ export default function SupportPage() {
           </div>
         </div>
 
-        {selected && <TicketDrawer selected={selected} setSelected={setSelected} message={message} setMessage={setMessage} isInternal={isInternal} setIsInternal={setIsInternal} sending={sending} sendMessage={sendMessage} changeStatus={changeStatus} isSuperAdmin={true} />}
+        {selected && <TicketDrawer selected={selected} setSelected={setSelected} message={message} setMessage={setMessage} isInternal={isInternal} setIsInternal={setIsInternal} sending={sending} sendMessage={sendMessage} changeStatus={changeStatus} isSuperAdmin={true} macros={macros} />}
       </div>
     );
   }
@@ -476,7 +476,7 @@ export default function SupportPage() {
       )}
 
       {/* Drawer détail */}
-      {selected && <TicketDrawer selected={selected} setSelected={setSelected} message={message} setMessage={setMessage} isInternal={isInternal} setIsInternal={setIsInternal} sending={sending} sendMessage={sendMessage} changeStatus={changeStatus} isSuperAdmin={false} />}
+      {selected && <TicketDrawer selected={selected} setSelected={setSelected} message={message} setMessage={setMessage} isInternal={isInternal} setIsInternal={setIsInternal} sending={sending} sendMessage={sendMessage} changeStatus={changeStatus} isSuperAdmin={false} macros={[]} />}
     </div>
   );
 }
@@ -485,7 +485,8 @@ export default function SupportPage() {
 //  SOUS-COMPOSANTS
 // ═══════════════════════════════════════════════════════════════
 
-function TicketDrawer({ selected, setSelected, message, setMessage, isInternal, setIsInternal, sending, sendMessage, changeStatus, isSuperAdmin }: any) {
+function TicketDrawer({ selected, setSelected, message, setMessage, isInternal, setIsInternal, sending, sendMessage, changeStatus, isSuperAdmin, macros = [] }: any) {
+  const [macrosOpen, setMacrosOpen] = useState(false);
   return (
     <div className="fixed inset-0 z-[100] flex justify-end">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelected(null)}></div>
@@ -561,6 +562,47 @@ function TicketDrawer({ selected, setSelected, message, setMessage, isInternal, 
         </div>
 
         <form onSubmit={sendMessage} className="border-t border-slate-200 p-4 bg-slate-50 space-y-3 sticky bottom-0">
+          {isSuperAdmin && macros.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMacrosOpen(!macrosOpen)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold transition"
+              >
+                ⚡ Macros ({macros.length})
+                <svg className={'w-3 h-3 transition ' + (macrosOpen ? 'rotate-180' : '')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {macrosOpen && (
+                <div className="absolute bottom-full mb-2 left-0 w-96 max-h-80 overflow-y-auto bg-white rounded-xl shadow-2xl border border-slate-200 z-50">
+                  {macros.slice(0, 15).map((m: any) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={async () => {
+                        setMessage(m.content);
+                        setMacrosOpen(false);
+                        apiFetch('/api/support/macros/' + m.id + '/use', { method: 'POST' }).catch(() => {});
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition"
+                    >
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-bold text-slate-900">{m.name}</span>
+                        {m.category && (
+                          <span className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                            {m.category}
+                          </span>
+                        )}
+                        <span className="ml-auto text-[9px] text-slate-400">utilisée {m.usageCount}×</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 line-clamp-2">{m.content}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
