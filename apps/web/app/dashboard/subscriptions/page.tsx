@@ -5,6 +5,7 @@ import { apiFetch } from '../../../lib/api';
 import { Modal, Button, FormField, Input, Select } from '../../../components/ui';
 import { usePagination } from '../../../lib/usePagination';
 import { resolvePrice } from '../../../lib/pricing';
+import SubscriptionHistoryDrawer from '../../../components/SubscriptionHistoryDrawer';
 import { Pagination } from '../../../lib/Pagination';
 
 const STATUS_FLOW = ['TRIAL', 'ACTIVE', 'SUSPENDED', 'EXPIRED'] as const;
@@ -96,6 +97,7 @@ export default function SubscriptionsPage() {
   const [manageModal, setManageModal] = useState<any>(null); // subscription en cours de gestion
   const [allModules, setAllModules] = useState<any[]>([]);
   const [managing, setManaging] = useState(false);
+  const [historyFor, setHistoryFor] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [sort, setSort] = useState<'recent' | 'name' | 'mrr'>('recent');
@@ -452,6 +454,12 @@ export default function SubscriptionsPage() {
                   </button>
                 </div>
 
+                <button
+                  onClick={() => setHistoryFor(sub)}
+                  className="w-full py-2 rounded-lg text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition flex items-center justify-center gap-1.5 mb-2"
+                >
+                  📜 Voir l'historique
+                </button>
                 <div className="flex flex-wrap items-center gap-2 p-4 border-t border-slate-100 bg-slate-50/50">
                   {(sub.status === 'TRIAL' || sub.status === 'SUSPENDED' || sub.status === 'EXPIRED') && (
                     <button
@@ -670,6 +678,14 @@ export default function SubscriptionsPage() {
             )}
           </div>
         </Modal>
+      )}
+
+      {historyFor && (
+        <SubscriptionHistoryDrawer
+          subscriptionId={historyFor.id}
+          orgName={historyFor.organization?.name || ''}
+          onClose={() => setHistoryFor(null)}
+        />
       )}
     </div>
   );

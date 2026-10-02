@@ -122,6 +122,7 @@ model Subscription {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
+  events         SubscriptionEvent[]
   activeModules SubscriptionModule[]
   payments      Payment[]
 }
@@ -195,6 +196,7 @@ model User {
   isOwner               Boolean          @default(false)
   stockMovements        StockMovement[]
   purchaseOrdersCreated PurchaseOrder[]  @relation("PurchaseOrderCreatedBy")
+  subscriptionEvents    SubscriptionEvent[] @relation("SubscriptionEventActor")
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
   permissions           UserPermission[]
@@ -1244,4 +1246,24 @@ model BillingConfig {
   updatedAt       DateTime @updatedAt
 
   @@map("BillingConfig")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ABONNEMENTS — Historique des changements
+// ═══════════════════════════════════════════════════════════════
+
+model SubscriptionEvent {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  type           String       // UPGRADE | DOWNGRADE | MODULE_ADDED | MODULE_REMOVED | STATUS_CHANGED
+  description    String
+  oldValue       String?
+  newValue       String?
+  actorId        String?
+  actor          User?        @relation("SubscriptionEventActor", fields: [actorId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId, createdAt])
+  @@map("SubscriptionEvent")
 }

@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards,
+  Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req,
 } from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -38,27 +38,32 @@ export class SubscriptionsController {
   }
 
   @Patch(':id/activate-module/:moduleId')
-  activateModule(@Param('id') id: string, @Param('moduleId') moduleId: string) {
-    return this.service.activateModule(id, moduleId);
+  activateModule(@Param('id') id: string, @Param('moduleId') moduleId: string, @Req() req: any) {
+    return this.service.activateModule(id, moduleId, req.user?.userId);
   }
 
   @Patch(':id/deactivate-module/:moduleId')
-  deactivateModule(@Param('id') id: string, @Param('moduleId') moduleId: string) {
-    return this.service.deactivateModule(id, moduleId);
+  deactivateModule(@Param('id') id: string, @Param('moduleId') moduleId: string, @Req() req: any) {
+    return this.service.deactivateModule(id, moduleId, req.user?.userId);
+  }
+
+  @Get(':id/events')
+  getEvents(@Param('id') id: string) {
+    return this.service.getEvents(id);
   }
 
   @Patch(':id/activate')
-  activate(@Param('id') id: string) {
-    return this.service.activate(id);
+  activate(@Param('id') id: string, @Req() req: any) {
+    return this.service.activate(id, req.user?.userId);
   }
 
   @Patch(':id/suspend')
-  suspend(@Param('id') id: string) {
-    return this.service.suspend(id);
+  suspend(@Param('id') id: string, @Req() req: any) {
+    return this.service.suspend(id, req.user?.userId);
   }
 
   @Patch(':id/expire')
-  expire(@Param('id') id: string) {
-    return this.service.expire(id);
+  expire(@Param('id') id: string, @Req() req: any) {
+    return this.service.expire(id, req.user?.userId);
   }
 }

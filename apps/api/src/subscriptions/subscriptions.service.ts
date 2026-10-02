@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePrice } from '../modules/pricing.util';
+import { logSubscriptionEvent } from './subscription-event.util';
 import { BillingService } from '../billing/billing.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
@@ -174,7 +175,7 @@ export class SubscriptionsService {
     });
   }
 
-  async activateModule(subscriptionId: string, moduleId: string) {
+  async activateModule(subscriptionId: string, moduleId: string, actorId?: string) {
     await this.findOne(subscriptionId);
     const module = await this.prisma.module.findUnique({ where: { id: moduleId } });
     if (!module) throw new NotFoundException('Module introuvable');
@@ -182,30 +183,55 @@ export class SubscriptionsService {
     const existing = await this.prisma.subscriptionModule.findFirst({
       where: { subscriptionId, moduleId },
     });
+
+    let result;
     if (existing) {
-      return this.prisma.subscriptionModule.update({
+      result = await this.prisma.subscriptionModule.update({
         where: { id: existing.id },
         data: { isActive: true },
       });
+    } else {
+      result = await this.prisma.subscriptionModule.create({
+        data: { subscriptionId, moduleId, isActive: true },
+      });
     }
-    return this.prisma.subscriptionModule.create({
-      data: { subscriptionId, moduleId, isActive: true },
-    });
+
+    await logSubscriptionEvent(
+      this.prisma,
+      subscriptionId,
+      'MODULE_ADDED',
+      `Module "${module.name}" activé`,
+      actorId || null,
+    );
+
+    return result;
   }
 
-  async deactivateModule(subscriptionId: string, moduleId: string) {
+  async deactivateModule(subscriptionId: string, moduleId: string, actorId?: string) {
     const existing = await this.prisma.subscriptionModule.findFirst({
       where: { subscriptionId, moduleId },
+      include: { module: true },
     });
     if (!existing) throw new NotFoundException('Module non trouvé');
-    return this.prisma.subscriptionModule.update({
+
+    const result = await this.prisma.subscriptionModule.update({
       where: { id: existing.id },
       data: { isActive: false },
     });
+
+    await logSubscriptionEvent(
+      this.prisma,
+      subscriptionId,
+      'MODULE_REMOVED',
+      `Module "${existing.module?.name || moduleId}" désactivé`,
+      actorId || null,
+    );
+
+    return result;
   }
 
-  async activate(id: string) {
-    await this.findOne(id);
+  async activate(id: string, actorId?: string) {
+    const prev = await this.findOne(id);
     const subscription = await this.prisma.subscription.update({
       where: { id },
       data: { status: 'ACTIVE', startDate: new Date(), endDate: null },
@@ -214,22 +240,68 @@ export class SubscriptionsService {
       where: { subscriptionId: id, status: 'PENDING' },
     });
     await this.billingService.createForSubscription(id, subscription.organizationId);
+
+    await logSubscriptionEvent(
+      this.prisma,
+      id,
+      'STATUS_CHANGED',
+      `Statut : ${prev.status} → ACTIVE`,
+      actorId || null,
+      prev.status,
+      'ACTIVE',
+    );
+
     return subscription;
   }
 
-  async suspend(id: string) {
-    await this.findOne(id);
-    return this.prisma.subscription.update({
+  async suspend(id: string, actorId?: string) {
+    const prev = await this.findOne(id);
+    const sub = await this.prisma.subscription.update({
       where: { id },
       data: { status: 'SUSPENDED' },
     });
+
+    await logSubscriptionEvent(
+      this.prisma,
+      id,
+      'STATUS_CHANGED',
+      `Statut : ${prev.status} → SUSPENDED`,
+      actorId || null,
+      prev.status,
+      'SUSPENDED',
+    );
+
+    return sub;
   }
 
-  async expire(id: string) {
-    await this.findOne(id);
-    return this.prisma.subscription.update({
+  async expire(id: string, actorId?: string) {
+    const prev = await this.findOne(id);
+    const sub = await this.prisma.subscription.update({
       where: { id },
       data: { status: 'EXPIRED' },
+    });
+
+    await logSubscriptionEvent(
+      this.prisma,
+      id,
+      'STATUS_CHANGED',
+      `Statut : ${prev.status} → EXPIRED`,
+      actorId || null,
+      prev.status,
+      'EXPIRED',
+    );
+
+    return sub;
+  }
+
+  async getEvents(subscriptionId: string) {
+    return this.prisma.subscriptionEvent.findMany({
+      where: { subscriptionId },
+      include: {
+        actor: { select: { id: true, email: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 }
