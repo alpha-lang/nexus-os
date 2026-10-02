@@ -72,6 +72,7 @@ model Organization {
   adminTags       String[]  @default([])
   adminNotes      String?
 
+  billingConfig BillingConfig?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -1178,4 +1179,45 @@ model WebhookDelivery {
 
   @@index([webhookId, createdAt])
   @@map("WebhookDelivery")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FACTURATION — Configuration TVA par organisation
+// ═══════════════════════════════════════════════════════════════
+
+model BillingConfig {
+  id              String   @id @default(cuid())
+  organizationId  String   @unique
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Identité fiscale
+  legalName       String?
+  taxId           String?
+  vatNumber       String?
+
+  // Adresse
+  addressLine1    String?
+  addressLine2    String?
+  postalCode      String?
+  city            String?
+  country         String   @default("Madagascar")
+
+  // TVA
+  vatEnabled      Boolean  @default(false)
+  vatRate         Float    @default(20)
+  vatLabel        String   @default("TVA")
+
+  // Facture
+  invoicePrefix   String   @default("FAC")
+  invoiceFooter   String?
+  paymentTerms    String   @default("Paiement à réception de facture")
+
+  // Branding PDF
+  logoUrl         String?
+  primaryColor    String   @default("#0f172a")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("BillingConfig")
 }

@@ -122,7 +122,12 @@ export default function BillingPage() {
       {/* Header Ledger */}
       <div>
         <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Grand Livre</p>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Facturation</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Facturation</h1>
+          <a href="/dashboard/billing/config" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition">
+            ⚙️ Config TVA
+          </a>
+        </div>
         <p className="text-slate-500 mt-1">
           {kpis.total} facture{kpis.total > 1 ? 's' : ''} · {kpis.countPaid} payee{kpis.countPaid > 1 ? 's' : ''} · {kpis.countPending} en attente
         </p>
