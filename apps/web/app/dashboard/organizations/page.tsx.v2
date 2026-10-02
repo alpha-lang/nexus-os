@@ -6,7 +6,6 @@ import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select, Textarea } from '../../../components/ui';
 import OrganizationWizard from '../../../components/OrganizationWizard';
 import BulkActionBar from '../../../components/BulkActionBar';
-import OrganizationDrawer from '../../../components/OrganizationDrawer';
 
 // ═════════════════════════════════════════════════════════════
 //  CONSTANTES
@@ -124,7 +123,6 @@ export default function OrganizationsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [drawerOrg, setDrawerOrg] = useState<any>(null);
 
   // Suspend modal
   const [suspendModal, setSuspendModal] = useState<any>(null);
@@ -522,7 +520,7 @@ export default function OrganizationsPage() {
   const hasFilters = search || filterType !== 'ALL' || filterStatus !== 'ALL' || filterAbo !== 'ALL';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {toast && (
         <div className="fixed top-20 right-4 z-[100] bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-medium">
           {toast}
@@ -539,6 +537,15 @@ export default function OrganizationsPage() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button
+            onClick={exportCsv}
+            className="w-full sm:w-auto px-4 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition inline-flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            Export CSV
+          </button>
           {isOwner && (
             <div className="w-full sm:w-auto">
               <Button
@@ -717,7 +724,7 @@ export default function OrganizationsPage() {
               <thead className="bg-slate-50 border-b-2 border-slate-200">
                 <tr>
                   {/* COLONNE SELECTION */}
-                  <th className="px-3 py-2.5 w-10">
+                  <th className="p-3 w-10">
                     <input
                       type="checkbox"
                       checked={pageItems.length > 0 && pageItems.every((o) => selectedIds.has(o.id))}
@@ -730,11 +737,10 @@ export default function OrganizationsPage() {
                   <Th sortKey="status" current={sortKey} dir={sortDir} onSort={toggleSort}>Statut</Th>
                   <Th sortKey="users" current={sortKey} dir={sortDir} onSort={toggleSort} align="right">Users</Th>
                   <Th sortKey="clients" current={sortKey} dir={sortDir} onSort={toggleSort} align="right">Clients</Th>
-                  <th className="px-3 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider text-left">Abo.</th>
+                  <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider text-left">Abo.</th>
                   <Th sortKey="mrr" current={sortKey} dir={sortDir} onSort={toggleSort} align="right">MRR</Th>
                   <Th sortKey="createdAt" current={sortKey} dir={sortDir} onSort={toggleSort}>Créée</Th>
-                  <th className="px-3 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider text-left">Tags</th>
-                  <th className="px-3 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center w-32">Actions</th>
+                  <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center w-32">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -745,9 +751,9 @@ export default function OrganizationsPage() {
                   const abm = aboMeta(abo.status);
                   const isMenuOpen = openMenu === org.id;
                   return (
-                    <tr key={org.id} onClick={() => setDrawerOrg(org)} className={'hover:bg-slate-50/60 transition group cursor-pointer ' + (selectedIds.has(org.id) ? 'bg-teal-50/40' : '')}>
+                    <tr key={org.id} className={'hover:bg-slate-50/60 transition group ' + (selectedIds.has(org.id) ? 'bg-teal-50/40' : '')}>
                       {/* SELECT */}
-                      <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selectedIds.has(org.id)}
@@ -755,9 +761,9 @@ export default function OrganizationsPage() {
                           className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
                         />
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="p-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={'w-8 h-8 rounded-lg bg-gradient-to-br ' + tm.grad + ' flex items-center justify-center text-white font-bold text-[11px] shrink-0'}>
+                          <div className={'w-9 h-9 rounded-xl bg-gradient-to-br ' + tm.grad + ' flex items-center justify-center text-white font-black text-xs shrink-0 shadow-sm'}>
                             {org.name?.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
@@ -766,30 +772,30 @@ export default function OrganizationsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                      <td className="p-3">
+                        <span className="text-[10px] font-black tracking-wider px-2 py-1 rounded-md bg-slate-100 text-slate-700">
                           {tm.label.toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={'inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded ' + sm.bg + ' ' + sm.text}>
-                          <span className={'w-1 h-1 rounded-full ' + sm.dot}></span>
+                      <td className="p-3">
+                        <span className={'inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-full ' + sm.bg + ' ' + sm.text}>
+                          <span className={'w-1.5 h-1.5 rounded-full ' + sm.dot}></span>
                           {sm.label}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-right font-bold text-slate-900 tabular-nums">
+                      <td className="p-3 text-right font-bold text-slate-900 tabular-nums">
                         {org._count?.users || 0}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-bold text-slate-900 tabular-nums">
+                      <td className="p-3 text-right font-bold text-slate-900 tabular-nums">
                         {org._count?.partners || 0}
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="p-3">
                         <span className="inline-flex items-center gap-1.5 text-[10px] font-bold" style={{ color: abm.color }}>
                           <span className="w-1.5 h-1.5 rounded-full" style={{ background: abm.color }}></span>
                           {abm.label}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-right font-black tabular-nums whitespace-nowrap">
+                      <td className="p-3 text-right font-black tabular-nums whitespace-nowrap">
                         {abo.mrr > 0 ? (
                           <span className="text-emerald-600">{abo.mrr.toLocaleString('fr-FR')} Ar</span>
                         ) : abo.pipeline > 0 ? (
@@ -800,29 +806,15 @@ export default function OrganizationsPage() {
                           <span className="text-slate-300">—</span>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">
+                      <td className="p-3 text-xs text-slate-500 whitespace-nowrap">
                         {new Date(org.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex flex-wrap gap-1 max-w-[140px]">
-                          {(org.adminTags || []).slice(0, 2).map((t: string) => (
-                            <span key={t} className="text-[9px] font-black tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                              {t.toUpperCase()}
-                            </span>
-                          ))}
-                          {(org.adminTags || []).length > 2 && (
-                            <span className="text-[9px] font-bold text-slate-400">
-                              +{(org.adminTags || []).length - 2}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5">
+                      <td className="p-3">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => openEdit(org)}
                             title="Modifier"
-                            className="w-7 h-7 rounded-md bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 flex items-center justify-center transition"
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 flex items-center justify-center transition"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -832,7 +824,7 @@ export default function OrganizationsPage() {
                             <button
                               onClick={() => openImpersonateModal(org)}
                               title="Se connecter en tant que"
-                              className="w-7 h-7 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-600 flex items-center justify-center transition"
+                              className="w-7 h-7 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-600 flex items-center justify-center transition"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -844,7 +836,7 @@ export default function OrganizationsPage() {
                             <button
                               onClick={() => openSuspendModal(org)}
                               title="Suspendre"
-                              className="w-7 h-7 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
+                              className="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -854,7 +846,7 @@ export default function OrganizationsPage() {
                             <button
                               onClick={() => openReactivateModal(org)}
                               title="Réactiver"
-                              className="w-7 h-7 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition"
+                              className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -864,7 +856,7 @@ export default function OrganizationsPage() {
                           <button
                             onClick={() => setOrgToDelete(org)}
                             title="Supprimer"
-                            className="w-7 h-7 rounded-md bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
+                            className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3" />
@@ -1229,24 +1221,13 @@ export default function OrganizationsPage() {
         </div>
       </Modal>
 
-      {/* ═══ DRAWER DÉTAIL ═══ */}
-      <OrganizationDrawer
-        org={drawerOrg}
-        onClose={() => setDrawerOrg(null)}
-        onEdit={(o: any) => { setDrawerOrg(null); openEdit(o); }}
-        onSuspend={(o: any) => { setDrawerOrg(null); openSuspendModal(o); }}
-        onReactivate={(o: any) => { setDrawerOrg(null); openReactivateModal(o); }}
-        onImpersonate={(o: any) => { setDrawerOrg(null); openImpersonateModal(o); }}
-        onDelete={(o: any) => { setDrawerOrg(null); setOrgToDelete(o); }}
-      />
-
       {/* ═══ BULK ACTION BAR ═══ */}
       <BulkActionBar
         count={selectedIds.size}
         onClear={clearSelection}
         actions={[
           { label: 'Export CSV', icon: '📥', onClick: exportCsvSelected },
-          { label: 'Modifier', icon: '✏️', onClick: () => {
+          { label: 'Voir sélection', icon: '👁️', onClick: () => {
             const first = filtered.find((o) => selectedIds.has(o.id));
             if (first) openEdit(first);
           }, disabled: selectedIds.size !== 1 },

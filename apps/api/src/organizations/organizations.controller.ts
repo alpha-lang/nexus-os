@@ -7,6 +7,7 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { SuspendOrganizationDto } from './dto/suspend-organization.dto';
+import { UpdateOrgTagsDto } from './dto/update-org-tags.dto';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -58,6 +59,16 @@ export class OrganizationsController {
   @Patch(':id/reactivate')
   reactivate(@Param('id') id: string, @Req() req: any) {
     return this.service.reactivate(id, req.user);
+  }
+
+  // ═══ Tags & notes admin ═══
+  @Patch(':id/tags')
+  updateTags(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrgTagsDto,
+    @Req() req: any,
+  ) {
+    return this.service.updateTags(id, dto, req.user);
   }
 
   // ═══ Impersonation ═══

@@ -359,4 +359,37 @@ export class OrganizationsService {
       orderBy: { name: 'asc' },
     });
   }
+
+  // ═══════════════════════════════════════════════════════════
+  //  TAGS & NOTES ADMIN (Super Admin uniquement)
+  // ═══════════════════════════════════════════════════════════
+
+  async updateTags(id: string, dto: { tags: string[]; notes?: string }, user: any) {
+    this.assertCanManage(user);
+
+    const org = await this.prisma.organization.findUnique({ where: { id } });
+    if (!org) throw new NotFoundException('Organisation introuvable');
+
+    // Nettoyer les tags : trim + dédup + ignorer vides
+    const cleaned = Array.from(
+      new Set(
+        (dto.tags || [])
+          .map((t) => String(t).trim())
+          .filter((t) => t.length > 0 && t.length <= 30)
+      )
+    ).slice(0, 20);
+
+    return this.prisma.organization.update({
+      where: { id },
+      data: {
+        adminTags: cleaned,
+        adminNotes: dto.notes !== undefined ? (dto.notes?.trim() || null) : undefined,
+      },
+      select: {
+        id: true,
+        adminTags: true,
+        adminNotes: true,
+      },
+    });
+  }
 }

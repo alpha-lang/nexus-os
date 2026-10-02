@@ -68,6 +68,10 @@ model Organization {
   status          String           @default("ACTIVE")
   suspendedReason String?
   suspendedAt     DateTime?
+  // ─── Tags & notes admin (Super Admin seulement) ───
+  adminTags       String[]  @default([])
+  adminNotes      String?
+
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
