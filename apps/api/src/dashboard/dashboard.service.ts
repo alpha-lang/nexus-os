@@ -1,5 +1,6 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolvePrice } from '../modules/pricing.util';
 
 @Injectable()
 export class DashboardService {
@@ -35,56 +36,52 @@ export class DashboardService {
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    // Toutes les requêtes en parallèle
     const [
       totalOrganizations,
       activeOrganizations,
       internalOrganizations,
+      trialOrgs,
+      suspendedOrgs,
+      expiredOrgs,
       totalUsers,
       activeUsers,
-      totalSubscriptions,
-      activeSubscriptions,
-      trialSubscriptions,
-      suspendedSubscriptions,
-      expiredSubscriptions,
+      totalModules,
+      activeSubsWithModules,
       monthPayments,
       lastMonthPayments,
       pendingPayments,
-      totalModules,
+      allClientOrgs,
+      orgsByType,
+      orgsByCity,
       recentOrgs,
       recentPayments,
-      orgsByType,
       monthlyRevenue,
-      topOrgsByRevenue,
     ] = await Promise.all([
-      // Organisations
       this.prisma.organization.count({ where: { type: { not: 'INTERNE' } } }),
       this.prisma.organization.count({ where: { type: { not: 'INTERNE' }, status: 'ACTIVE' } }),
       this.prisma.organization.count({ where: { type: 'INTERNE' } }),
-
-      // Users
+      this.prisma.organization.count({ where: { type: { not: 'INTERNE' }, status: { notIn: ['SUSPENDED', 'INACTIVE'] } } }),
+      this.prisma.organization.count({ where: { type: { not: 'INTERNE' }, status: 'SUSPENDED' } }),
+      this.prisma.organization.count({ where: { type: { not: 'INTERNE' }, status: 'INACTIVE' } }),
       this.prisma.user.count(),
       this.prisma.user.count({ where: { isActive: true } }),
+      this.prisma.module.count({ where: { status: 'ACTIVE' } }),
 
-      // Subscriptions
-      this.prisma.subscription.count({
-        where: { organization: { type: { not: 'INTERNE' } } },
-      }),
-      this.prisma.subscription.count({
-        where: { status: 'ACTIVE', organization: { type: { not: 'INTERNE' } } },
-      }),
-      this.prisma.subscription.count({
-        where: { status: 'TRIAL', organization: { type: { not: 'INTERNE' } } },
-      }),
-      this.prisma.subscription.count({
-        where: { status: 'SUSPENDED', organization: { type: { not: 'INTERNE' } } },
-      }),
-      this.prisma.subscription.count({
-        where: { status: 'EXPIRED', organization: { type: { not: 'INTERNE' } } },
+      // Toutes les subscriptions actives avec leurs modules (pour calcul MRR)
+      this.prisma.subscription.findMany({
+        where: {
+          status: 'ACTIVE',
+          organization: { type: { not: 'INTERNE' } },
+        },
+        include: {
+          activeModules: { include: { module: true } },
+          organization: { select: { id: true, type: true, name: true } },
+        },
       }),
 
-      // Paiements du mois
       this.prisma.payment.aggregate({
         where: {
           date: { gte: monthStart },
@@ -106,10 +103,36 @@ export class DashboardService {
         where: { status: 'PENDING', organization: { type: { not: 'INTERNE' } } },
       }),
 
-      // Modules
-      this.prisma.module.count({ where: { status: 'ACTIVE' } }),
+      // Toutes les orgs clients avec leur date de création (pour cohortes + top)
+      this.prisma.organization.findMany({
+        where: { type: { not: 'INTERNE' } },
+        select: {
+          id: true, name: true, type: true, city: true, status: true,
+          createdAt: true,
+          subscriptions: {
+            where: { status: 'ACTIVE' },
+            select: {
+              activeModules: { select: { isActive: true, module: { select: { price: true, pricing: true } } } },
+            },
+            take: 1,
+          },
+          _count: { select: { users: true, partners: true } },
+        },
+      }),
 
-      // Organisations récentes
+      this.prisma.organization.groupBy({
+        by: ['type'],
+        where: { type: { not: 'INTERNE' } },
+        _count: true,
+      }),
+      this.prisma.organization.groupBy({
+        by: ['city'],
+        where: { type: { not: 'INTERNE' }, city: { not: null } },
+        _count: true,
+        orderBy: { _count: { city: 'desc' } },
+        take: 8,
+      }),
+
       this.prisma.organization.findMany({
         where: { type: { not: 'INTERNE' } },
         orderBy: { createdAt: 'desc' },
@@ -117,14 +140,12 @@ export class DashboardService {
         include: {
           _count: { select: { users: true, partners: true } },
           subscriptions: {
-            select: { status: true, activeModules: { where: { isActive: true } } },
+            select: { status: true },
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
         },
       }),
-
-      // Paiements récents
       this.prisma.payment.findMany({
         where: { organization: { type: { not: 'INTERNE' } } },
         orderBy: { date: 'desc' },
@@ -132,92 +153,153 @@ export class DashboardService {
         include: { organization: { select: { id: true, name: true, type: true } } },
       }),
 
-      // Répartition par type
-      this.prisma.organization.groupBy({
-        by: ['type'],
-        where: { type: { not: 'INTERNE' } },
-        _count: true,
-      }),
-
-      // Revenus des 6 derniers mois
-      this.getMonthlyRevenue(6),
-
-      // Top organisations par CA
-      this.prisma.payment.groupBy({
-        by: ['organizationId'],
-        where: {
-          status: 'PAID',
-          date: { gte: thirtyDaysAgo },
-          organization: { type: { not: 'INTERNE' } },
-        },
-        _sum: { amount: true },
-        orderBy: { _sum: { amount: 'desc' } },
-        take: 5,
-      }),
+      this.getMonthlyRevenue(12),
     ]);
 
+    // ═══ MRR / ARR / ARPU ═══
+    const mrr = activeSubsWithModules.reduce((sum, sub) => {
+      const orgType = sub.organization?.type;
+      const subTotal = (sub.activeModules || [])
+        .filter((am) => am.isActive)
+        .reduce((s, am) => s + resolvePrice(am.module, orgType), 0);
+      return sum + subTotal;
+    }, 0);
+
+    const arr = mrr * 12;
+    const arpu = activeOrganizations > 0 ? mrr / activeOrganizations : 0;
+
+    // ═══ MRR par org (pour top clients) ═══
+    const orgsWithMrr = allClientOrgs.map((org) => {
+      const sub = org.subscriptions[0];
+      const orgMrr = sub
+        ? (sub.activeModules || [])
+            .filter((am: any) => am.isActive)
+            .reduce((s: number, am: any) => s + resolvePrice(am.module, org.type), 0)
+        : 0;
+      return {
+        id: org.id,
+        name: org.name,
+        type: org.type,
+        city: org.city,
+        mrr: orgMrr,
+        users: org._count.users,
+        partners: org._count.partners,
+        createdAt: org.createdAt,
+      };
+    });
+
+    const topClients = [...orgsWithMrr].sort((a, b) => b.mrr - a.mrr).slice(0, 10);
+
+    // ═══ Churn (approximé : orgs INACTIVE ce mois) ═══
+    const churnCount = allClientOrgs.filter((o) => o.status === 'INACTIVE').length;
+    const churnRate = totalOrganizations > 0 ? (churnCount / totalOrganizations) * 100 : 0;
+
+    // ═══ Cohortes 6 mois ═══
+    const cohortMap: Record<string, { month: string; label: string; total: number; active: number; trial: number; mrr: number }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      cohortMap[key] = {
+        month: key,
+        label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+        total: 0,
+        active: 0,
+        trial: 0,
+        mrr: 0,
+      };
+    }
+
+    for (const org of orgsWithMrr) {
+      const d = new Date(org.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!cohortMap[key]) continue;
+      cohortMap[key].total++;
+      if (org.mrr > 0) cohortMap[key].active++;
+      else cohortMap[key].trial++;
+      cohortMap[key].mrr += org.mrr;
+    }
+
+    const cohorts = Object.values(cohortMap).sort((a, b) => a.month.localeCompare(b.month));
+
+    // ═══ Croissance revenus ═══
     const currentRevenue = monthPayments._sum.amount || 0;
     const prevRevenue = lastMonthPayments._sum.amount || 0;
-    const revenueGrowth =
-      prevRevenue > 0 ? Math.round(((currentRevenue - prevRevenue) / prevRevenue) * 100) : 0;
+    const revenueGrowth = prevRevenue > 0
+      ? Math.round(((currentRevenue - prevRevenue) / prevRevenue) * 100)
+      : 0;
 
-    // Récupérer les noms des top orga
-    const topOrgIds = topOrgsByRevenue.map((t) => t.organizationId);
-    const topOrgs = topOrgIds.length
-      ? await this.prisma.organization.findMany({
-          where: { id: { in: topOrgIds } },
-          select: { id: true, name: true, type: true },
-        })
-      : [];
+    // ═══ NRR approximé (MRR actif vs MRR il y a 30j si dispo) ═══
+    // Faute de tracking historique, on utilise un placeholder
+    const nrr = mrr > 0 ? 100 : 0;
+
+    // ═══ Distribution par type ═══
+    const totalClientOrgs = orgsByType.reduce((s, o) => s + o._count, 0);
+    const distributionByType = orgsByType.map((o) => ({
+      type: o.type || 'AUTRE',
+      count: o._count,
+      pct: totalClientOrgs > 0 ? Math.round((o._count / totalClientOrgs) * 100) : 0,
+    }));
 
     return {
       type: 'SUPER_ADMIN',
-      overview: {
-        organizations: {
-          total: totalOrganizations,
-          active: activeOrganizations,
-          internal: internalOrganizations,
-        },
-        users: {
-          total: totalUsers,
-          active: activeUsers,
-        },
-        modules: {
-          total: totalModules,
-        },
-      },
-      subscriptions: {
-        total: totalSubscriptions,
-        active: activeSubscriptions,
-        trial: trialSubscriptions,
-        suspended: suspendedSubscriptions,
-        expired: expiredSubscriptions,
-      },
-      revenue: {
-        currentMonth: currentRevenue,
-        previousMonth: prevRevenue,
-        growth: revenueGrowth,
+      generatedAt: now.toISOString(),
+
+      // KPI financiers (nouveaux)
+      financial: {
+        mrr,
+        arr,
+        arpu: Math.round(arpu),
+        churnRate: Math.round(churnRate * 10) / 10,
+        nrr,
+        currentMonthRevenue: currentRevenue,
+        previousMonthRevenue: prevRevenue,
+        revenueGrowth,
         paymentsThisMonth: monthPayments._count,
-        pendingCount: pendingPayments,
+        pendingPayments,
       },
+
+      // Organisations
+      organizations: {
+        total: totalOrganizations,
+        active: activeOrganizations,
+        trial: trialOrgs - activeOrganizations,
+        suspended: suspendedOrgs,
+        expired: expiredOrgs,
+        internal: internalOrganizations,
+      },
+
+      // Utilisateurs
+      users: {
+        total: totalUsers,
+        active: activeUsers,
+      },
+
+      // Modules
+      modules: {
+        total: totalModules,
+      },
+
+      // Cohortes
+      cohorts,
+
+      // Top 10 clients
+      topClients,
+
+      // Distribution
       distribution: {
-        byType: orgsByType.map((o) => ({
-          type: o.type || 'AUTRE',
-          count: o._count,
+        byType: distributionByType,
+        byCity: orgsByCity.map((c) => ({
+          city: c.city || 'Non renseigné',
+          count: c._count,
         })),
       },
+
+      // Revenus mensuels (12 mois)
       monthlyRevenue,
+
+      // Récents
       recentOrgs,
       recentPayments,
-      topOrgsByRevenue: topOrgsByRevenue.map((t) => {
-        const org = topOrgs.find((o) => o.id === t.organizationId);
-        return {
-          id: t.organizationId,
-          name: org?.name || '—',
-          type: org?.type || '—',
-          revenue: t._sum.amount || 0,
-        };
-      }),
     };
   }
 
