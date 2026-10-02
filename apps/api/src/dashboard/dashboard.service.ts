@@ -21,10 +21,40 @@ export class DashboardService {
     });
     if (!org) throw new ForbiddenException('Organisation introuvable');
 
-    if (org.type === 'HOTEL') return this.getHotelStats(user.organizationId);
-    if (org.type === 'COMMERCE') return this.getCommerceStats(user.organizationId);
+    const type = org.type === 'HOTEL' ? 'HOTEL'
+      : org.type === 'COMMERCE' ? 'COMMERCE'
+      : 'GENERIC';
 
-    return this.getGenericStats(user.organizationId);
+    // ─── Base commune ───
+    const base: any = {
+      role: user.role,
+      type,
+      org: { id: org.id, name: org.name, type: org.type, city: org.city },
+      generatedAt: new Date().toISOString(),
+    };
+
+    const role = user.role;
+
+    // ─── Données métier existantes selon type d'org ───
+    if (type === 'HOTEL') Object.assign(base, await this.getHotelStats(user.organizationId));
+    else if (type === 'COMMERCE') Object.assign(base, await this.getCommerceStats(user.organizationId));
+    else Object.assign(base, await this.getGenericStats(user.organizationId));
+
+    // ─── Données additionnelles par rôle ───
+    if (['RECEPTION', 'MANAGER', 'ADMIN'].includes(role)) {
+      Object.assign(base, await this.getReceptionData(user.organizationId));
+    }
+    if (['MANAGER', 'ADMIN'].includes(role)) {
+      Object.assign(base, await this.getManagerData(user.organizationId, type));
+    }
+    if (['FINANCE', 'ADMIN'].includes(role)) {
+      Object.assign(base, await this.getFinanceData(user.organizationId));
+    }
+    if (['STOCK_MANAGER', 'ADMIN'].includes(role)) {
+      Object.assign(base, await this.getStockData(user.organizationId));
+    }
+
+    return base;
   }
 
   // ==============================
@@ -523,5 +553,123 @@ export class DashboardService {
       type: 'GENERIC',
       counts: { users, customers, sales },
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  HELPER — Reception (arrivées / départs / chambres)
+  // ═══════════════════════════════════════════════════════════════
+  private async getReceptionData(orgId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const [arrivals, departures, inHouse, pendingResas, roomsAvailable, roomsOccupied, roomsCleaning, recentFolios] = await Promise.all([
+      this.prisma.reservation.count({ where: { organizationId: orgId, checkInDate: { gte: today, lt: tomorrow }, status: { in: ['PENDING', 'CONFIRMED', 'DEPOSIT_PAID'] } } }),
+      this.prisma.reservation.count({ where: { organizationId: orgId, checkOutDate: { gte: today, lt: tomorrow }, status: 'CHECKED_IN' } }),
+      this.prisma.reservation.count({ where: { organizationId: orgId, status: 'CHECKED_IN' } }),
+      this.prisma.reservation.count({ where: { organizationId: orgId, status: { in: ['PENDING', 'QUOTED'] } } }),
+      this.prisma.room.count({ where: { organizationId: orgId, status: 'AVAILABLE' } }),
+      this.prisma.room.count({ where: { organizationId: orgId, status: 'OCCUPIED' } }),
+      this.prisma.room.count({ where: { organizationId: orgId, status: 'CLEANING' } }),
+      this.prisma.reservation.findMany({
+        where: { organizationId: orgId, status: { in: ['CHECKED_IN', 'CHECKED_OUT'] } },
+        include: { customer: { select: { name: true, firstName: true, lastName: true } }, room: { select: { number: true } } },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      }),
+    ]);
+
+    return {
+      reception: {
+        arrivals, departures, inHouse, pendingResas,
+        rooms: { available: roomsAvailable, occupied: roomsOccupied, cleaning: roomsCleaning },
+        recentFolios,
+      },
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  HELPER — Manager (KPIs opérationnels)
+  // ═══════════════════════════════════════════════════════════════
+  private async getManagerData(orgId: string, type: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+
+    const [totalRooms, occupiedRooms, monthRevenue, lastMonthRevenue, criticalStockCount, cashTotal, todayPayments] = await Promise.all([
+      type === 'HOTEL' ? this.prisma.room.count({ where: { organizationId: orgId } }) : Promise.resolve(0),
+      type === 'HOTEL' ? this.prisma.room.count({ where: { organizationId: orgId, status: 'OCCUPIED' } }) : Promise.resolve(0),
+      this.prisma.reservation.aggregate({ where: { organizationId: orgId, createdAt: { gte: monthStart }, status: { not: 'CANCELLED' } }, _sum: { totalAmount: true } }),
+      this.prisma.reservation.aggregate({ where: { organizationId: orgId, createdAt: { gte: lastMonthStart, lt: monthStart }, status: { not: 'CANCELLED' } }, _sum: { totalAmount: true } }),
+      this.prisma.stockItem.count({ where: { organizationId: orgId, currentStock: { lte: 0 } } }),
+      this.prisma.cashRegister.aggregate({ where: { organizationId: orgId }, _sum: { currentBalance: true } }),
+      this.prisma.orderPayment.aggregate({ where: { order: { organizationId: orgId }, createdAt: { gte: today } }, _sum: { amount: true } }),
+    ]);
+
+    const revenue = monthRevenue._sum.totalAmount || 0;
+    const prevRevenue = lastMonthRevenue._sum.totalAmount || 0;
+    const growth = prevRevenue > 0 ? Math.round(((revenue - prevRevenue) / prevRevenue) * 100) : 0;
+
+    return {
+      manager: {
+        revenue: { current: revenue, previous: prevRevenue, growth },
+        paymentsToday: todayPayments._sum.amount || 0,
+        cashTotal: cashTotal._sum.currentBalance || 0,
+        occupancy: type === 'HOTEL' && totalRooms > 0 ? { rate: Math.round((occupiedRooms / totalRooms) * 100), total: totalRooms, occupied: occupiedRooms } : null,
+        stock: { criticalCount: criticalStockCount },
+      },
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  HELPER — Finance (encaissements / impayés)
+  // ═══════════════════════════════════════════════════════════════
+  private async getFinanceData(orgId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [cashToday, cardToday, mobileToday, pendingInvoices, totalPending, creditsPending, creditsTotal] = await Promise.all([
+      this.prisma.orderPayment.aggregate({ where: { order: { organizationId: orgId }, createdAt: { gte: today }, method: 'CASH' }, _sum: { amount: true } }),
+      this.prisma.orderPayment.aggregate({ where: { order: { organizationId: orgId }, createdAt: { gte: today }, method: 'CARD' }, _sum: { amount: true } }),
+      this.prisma.orderPayment.aggregate({ where: { order: { organizationId: orgId }, createdAt: { gte: today }, method: 'MOBILE' }, _sum: { amount: true } }),
+      this.prisma.payment.count({ where: { organizationId: orgId, status: 'PENDING' } }),
+      this.prisma.payment.aggregate({ where: { organizationId: orgId, status: 'PENDING' }, _sum: { amount: true } }),
+      this.prisma.restaurantOrder.count({ where: { organizationId: orgId, paymentStatus: { in: ['UNPAID', 'PARTIAL'] }, notes: { contains: 'CREDIT' } } }),
+      this.prisma.restaurantOrder.aggregate({ where: { organizationId: orgId, paymentStatus: { in: ['UNPAID', 'PARTIAL'] }, notes: { contains: 'CREDIT' } }, _sum: { total: true, paidAmount: true } }),
+    ]);
+
+    const cash = cashToday._sum.amount || 0;
+    const card = cardToday._sum.amount || 0;
+    const mobile = mobileToday._sum.amount || 0;
+
+    return {
+      finance: {
+        today: { cash, card, mobile, total: cash + card + mobile },
+        invoices: { pending: pendingInvoices, pendingAmount: totalPending._sum.amount || 0 },
+        credits: { count: creditsPending, owed: (creditsTotal._sum.total || 0) - (creditsTotal._sum.paidAmount || 0) },
+      },
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  HELPER — Stock manager
+  // ═══════════════════════════════════════════════════════════════
+  private async getStockData(orgId: string) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
+
+    const [items, pendingOrders, movements30d, suppliers] = await Promise.all([
+      this.prisma.stockItem.findMany({ where: { organizationId: orgId }, select: { currentStock: true, minStock: true, costPrice: true } }),
+      this.prisma.purchaseOrder.count({ where: { organizationId: orgId, status: { in: ['DRAFT', 'SENT', 'PARTIAL'] } } }),
+      this.prisma.stockMovement.count({ where: { organizationId: orgId, createdAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.partner.count({ where: { organizationId: orgId, type: 'SUPPLIER' } }),
+    ]);
+
+    const totalValue = items.reduce((s, i) => s + (i.currentStock * i.costPrice), 0);
+    const critical = items.filter((i) => i.currentStock > 0 && i.currentStock <= i.minStock).length;
+    const out = items.filter((i) => i.currentStock <= 0).length;
+
+    return { stock: { totalItems: items.length, totalValue, critical, out, pendingOrders, movements30d, suppliers } };
   }
 }

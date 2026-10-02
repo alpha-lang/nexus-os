@@ -3,6 +3,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../../lib/api';
 import SuperAdminDashboard from '../../components/SuperAdminDashboard';
+import ReceptionWidgets from '../../components/dashboard/ReceptionWidgets';
+import ManagerWidgets from '../../components/dashboard/ManagerWidgets';
+import FinanceWidgets from '../../components/dashboard/FinanceWidgets';
+import StockWidgets from '../../components/dashboard/StockWidgets';
 
 const ORG_TYPES_META: Record<string, { label: string; color: string; bg: string }> = {
   HOTEL:        { label: 'Hotels',       color: '#8b5cf6', bg: 'bg-purple-50' },
@@ -176,6 +180,13 @@ export default function DashboardPage() {
       {/* ═══ SUPER ADMIN ═══ */}
       {isSuperAdmin && <SuperAdminDashboard stats={stats} />}
 
+      {/* ═══ WIDGETS PAR RÔLE ═══ */}
+      {!isSuperAdmin && stats?.role === 'RECEPTION' && stats?.reception && <ReceptionWidgets data={stats.reception} />}
+      {!isSuperAdmin && ['MANAGER', 'FINANCE'].includes(stats?.role) && stats?.manager && <ManagerWidgets data={stats.manager} />}
+      {!isSuperAdmin && stats?.role === 'FINANCE' && stats?.finance && <FinanceWidgets data={stats.finance} />}
+      {!isSuperAdmin && stats?.role === 'STOCK_MANAGER' && stats?.stock && <StockWidgets data={stats.stock} />}
+
+      {/* ═══ WIDGETS MÉTIER ═══ */}
       {isHotel && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
