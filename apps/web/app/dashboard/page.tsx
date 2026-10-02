@@ -136,7 +136,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5">
       {/* ═══ HERO COCKPIT ═══ */}
-      <div className="relative bg-slate-900 rounded-2xl px-4 py-3 text-white overflow-hidden">
+      <div className="relative bg-slate-900 rounded-xl px-4 py-3 text-white overflow-hidden">
         {/* Grille décorative */}
         <div className="absolute inset-0 opacity-[0.04]" style={{
           backgroundImage: 'linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)',
@@ -163,7 +163,7 @@ export default function DashboardPage() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="text-right">
               <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest">Heure locale</p>
               <p className="text-lg font-black tabular-nums text-white leading-none mt-0.5">
@@ -221,7 +221,7 @@ export default function DashboardPage() {
           </div>
 
       {isHotel && stockDash && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-teal-500 text-white flex items-center justify-center">
@@ -292,7 +292,7 @@ export default function DashboardPage() {
 
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-3">
+            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-3">
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <h3 className="font-black text-slate-900 text-sm">Taux d occupation</h3>
@@ -315,7 +315,7 @@ export default function DashboardPage() {
                 <div className="h-full bg-gradient-to-r from-blue-500 to-teal-400 rounded-full transition-all"
                   style={{ width: `${stats.occupancy.rate}%` }}></div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -340,7 +340,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-slate-900 rounded-2xl p-3 text-white relative overflow-hidden">
+            <div className="bg-slate-900 rounded-xl p-3 text-white relative overflow-hidden">
               <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-teal-500/20 blur-3xl"></div>
               <div className="relative">
                 <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2">Revenus du mois</p>
@@ -363,8 +363,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                 <h3 className="font-black text-slate-900 text-sm">Reservations recentes</h3>
                 <a href="/dashboard/reservations" className="text-[10px] font-black text-teal-600 hover:underline tracking-wider">
@@ -399,7 +399,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100">
                 <h3 className="font-black text-slate-900 text-sm">Chambres populaires</h3>
               </div>
@@ -447,8 +447,8 @@ export default function DashboardPage() {
             <KpiCard label="Top produit" value={stats.topProducts[0]?.quantity || '0'} sub={stats.topProducts[0]?.name || 'Aucun'} accent="purple" />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                 <h3 className="font-black text-slate-900 text-sm">Ventes recentes</h3>
                 <a href="/dashboard/sales" className="text-[10px] font-black text-teal-600 hover:underline tracking-wider">VOIR TOUT</a>
@@ -471,7 +471,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100">
                 <h3 className="font-black text-slate-900 text-sm">Top produits</h3>
               </div>

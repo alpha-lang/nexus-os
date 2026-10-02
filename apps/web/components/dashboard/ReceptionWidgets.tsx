@@ -17,7 +17,7 @@ function KpiCard({ label, value, sub, accent, href }: any) {
   return (
     <button
       onClick={() => href && router.push(href)}
-      className={`text-left bg-white rounded-xl border ${a.border} p-3 hover:shadow-md transition group`}
+      className={`text-left bg-white rounded-lg border ${a.border} p-3 hover:shadow-md transition group`}
     >
       <div className="flex items-start justify-between mb-2">
         <div className={`w-7 h-7 rounded-lg ${a.bg} flex items-center justify-center`}>
@@ -54,9 +54,9 @@ export default function ReceptionWidgets({ data }: { data: any }) {
         <KpiCard label="En attente" value={pendingResas} sub="à confirmer" accent="amber" href="/dashboard/reservations" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
         {/* Chambres */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="bg-white rounded-lg border border-slate-200 p-4">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-3">🏨 État des chambres</p>
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
@@ -84,7 +84,7 @@ export default function ReceptionWidgets({ data }: { data: any }) {
         </div>
 
         {/* Folios récents */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">📋 Séjours récents</p>
             <a href="/dashboard/reservations" className="text-[10px] font-black text-teal-600 hover:underline">VOIR TOUT →</a>
@@ -94,7 +94,7 @@ export default function ReceptionWidgets({ data }: { data: any }) {
               <p className="p-6 text-center text-xs text-slate-400">Aucun séjour récent</p>
             ) : (
               recentFolios.map((r: any) => (
-                <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+                <div key={r.id} className="flex items-center gap-2.5 px-4 py-2.5">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center text-white text-xs font-black shrink-0">
                     {(r.customer?.firstName || '?').charAt(0)}{(r.customer?.lastName || '?').charAt(0)}
                   </div>

@@ -12,7 +12,7 @@ export default function ManagerWidgets({ data }: { data: any }) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <div className="bg-slate-900 rounded-xl p-4 text-white col-span-2 lg:col-span-1">
+        <div className="bg-slate-900 rounded-lg p-4 text-white col-span-2 lg:col-span-1">
           <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mb-1">CA du mois</p>
           <p className="text-xl font-black tabular-nums text-teal-400">
             {(revenue.current || 0).toLocaleString('fr-FR')}
@@ -25,7 +25,7 @@ export default function ManagerWidgets({ data }: { data: any }) {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="bg-white rounded-lg border border-slate-200 p-4">
           <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1">Encaissé aujourd'hui</p>
           <p className="text-xl font-black text-slate-900 tabular-nums">
             {(paymentsToday || 0).toLocaleString('fr-FR')}
@@ -33,7 +33,7 @@ export default function ManagerWidgets({ data }: { data: any }) {
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="bg-white rounded-lg border border-slate-200 p-4">
           <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1">Solde caisse total</p>
           <p className="text-xl font-black text-slate-900 tabular-nums">
             {(cashTotal || 0).toLocaleString('fr-FR')}
@@ -42,13 +42,13 @@ export default function ManagerWidgets({ data }: { data: any }) {
         </div>
 
         {occupancy ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <div className="bg-white rounded-lg border border-slate-200 p-4">
             <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1">Occupation</p>
             <p className="text-xl font-black text-slate-900 tabular-nums">{occupancy.rate}%</p>
             <p className="text-[10px] text-slate-400">{occupancy.occupied} / {occupancy.total} chambres</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <div className="bg-white rounded-lg border border-slate-200 p-4">
             <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-1">Stock critique</p>
             <p className="text-xl font-black text-red-600 tabular-nums">{stock.criticalCount}</p>
             <p className="text-[10px] text-slate-400">articles en rupture</p>

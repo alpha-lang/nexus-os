@@ -189,3 +189,50 @@ body {
     min-height: 40px;
   }
 }
+
+
+/* ═══════════════════════════════════════════════
+   DENSITY SYSTEM — refonte pro (BLOC 4.2)
+   Tailwind v4 : @utility pour chaque classe custom
+   ═══════════════════════════════════════════════ */
+
+@layer base {
+  body {
+    background: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'tnum' 1;
+  }
+}
+
+@utility card-pro {
+  @apply bg-white rounded-xl border border-slate-200;
+}
+
+@utility card-pro-hover {
+  @apply bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition;
+}
+
+@utility section-label {
+  @apply text-[10px] font-black text-slate-500 uppercase tracking-widest;
+}
+
+@utility page-title {
+  @apply text-2xl sm:text-3xl font-black text-slate-900 tracking-tight;
+}
+
+@utility kpi-value {
+  @apply text-2xl font-black tabular-nums text-slate-900 leading-none;
+}
+
+@utility btn-primary {
+  @apply inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-teal-500 hover:shadow-lg text-white rounded-lg font-bold text-sm transition disabled:opacity-50;
+}
+
+@utility btn-secondary {
+  @apply inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-bold text-sm transition;
+}
+
+@utility btn-ghost {
+  @apply inline-flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition;
+}

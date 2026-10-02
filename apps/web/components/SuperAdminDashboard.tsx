@@ -181,7 +181,7 @@ export default function SuperAdminDashboard({ stats }: { stats: any }) {
   return (
     <div className="space-y-5">
       {/* ═══════ HERO ═══════ */}
-      <div className="bg-slate-900 rounded-2xl p-4 sm:p-5 text-white">
+      <div className="bg-slate-900 rounded-xl p-4 text-white">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
           <div>
             <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">
@@ -259,8 +259,8 @@ export default function SuperAdminDashboard({ stats }: { stats: any }) {
       </div>
 
       {/* ═══════ ROW 3 : Revenus + Répartition ═══════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-black text-slate-900 text-base">Revenus 12 mois</h3>
@@ -273,7 +273,7 @@ export default function SuperAdminDashboard({ stats }: { stats: any }) {
           <RevenueChart data={monthlyRevenue} />
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
           <h3 className="font-black text-slate-900 text-base mb-4">Répartition tenants</h3>
           <div className="space-y-3">
             {(stats.distribution?.byType || []).map((t: any) => (
@@ -300,8 +300,8 @@ export default function SuperAdminDashboard({ stats }: { stats: any }) {
       </div>
 
       {/* ═══════ ROW 4 : Cohortes + Top clients ═══════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-black text-slate-900 text-base">Cohortes</h3>
@@ -313,7 +313,7 @@ export default function SuperAdminDashboard({ stats }: { stats: any }) {
           <CohortHeatmap cohorts={stats.cohorts || []} />
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-black text-slate-900 text-base">Top 10 clients</h3>
@@ -355,7 +355,7 @@ export default function SuperAdminDashboard({ stats }: { stats: any }) {
       </div>
 
       {/* ═══════ ROW 5 : Derniers paiements ═══════ */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h3 className="font-black text-slate-900 text-sm">Derniers paiements</h3>
           <a href="/dashboard/billing" className="text-[10px] font-black text-teal-600 hover:underline tracking-wider">
