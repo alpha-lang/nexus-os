@@ -30,6 +30,8 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
+import { SupportModule } from './support/support.module';
+import { ChangelogModule } from './changelog/changelog.module';
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
     AnnouncementsModule,
     FeatureFlagsModule,
     MaintenanceModule,
+    SupportModule,
+    ChangelogModule,
     JwtModule.register({ secret: process.env.JWT_SECRET }),
   ],
   providers: [

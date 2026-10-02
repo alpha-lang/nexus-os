@@ -192,6 +192,8 @@ model User {
   permissions           UserPermission[]
   auditLogs             AuditLog[]
   tickets               Ticket[]         @relation("AssignedTickets")
+  ticketsCreated        Ticket[]         @relation("TicketCreatedBy")
+  ticketMessages        TicketMessage[]  @relation("TicketMessageAuthor")
   documents             Document[]
   partners              Partner[]
   interactions          Interaction[]
@@ -335,17 +337,28 @@ model Sale {
 }
 
 model Ticket {
-  id             String       @id @default(cuid())
+  id             String          @id @default(cuid())
+  reference      String          @unique
   title          String
   description    String?
-  status         String       @default("OPEN")
-  priority       String       @default("NORMAL")
+  status         String          @default("OPEN")
+  priority       String          @default("NORMAL")
+  category       TicketCategory  @default(OTHER)
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String?
+  createdBy      User?           @relation("TicketCreatedBy", fields: [createdById], references: [id])
   assignedToId   String?
-  assignedTo     User?        @relation("AssignedTickets", fields: [assignedToId], references: [id])
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  assignedTo     User?           @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  messages       TicketMessage[]
+
+  @@index([organizationId, status])
+  @@index([status, priority])
+  @@map("Ticket")
 }
 
 model Employee {
@@ -1014,4 +1027,50 @@ model MaintenanceWindow {
   updatedAt       DateTime  @updatedAt
 
   @@map("MaintenanceWindow")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SUPPORT — Enrichissement Ticket + Messages
+// ═══════════════════════════════════════════════════════════════
+
+enum TicketCategory {
+  BUG
+  FEATURE_REQUEST
+  QUESTION
+  BILLING
+  OTHER
+}
+
+model TicketMessage {
+  id             String       @id @default(cuid())
+  ticketId       String
+  ticket         Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation("TicketMessageAuthor", fields: [authorId], references: [id])
+  content        String
+  isInternal     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("TicketMessage")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CHANGELOG — Nouveautés publiées aux tenants
+// ═══════════════════════════════════════════════════════════════
+
+model ChangelogEntry {
+  id             String   @id @default(cuid())
+  version        String
+  title          String
+  body           String
+  type           String   @default("FEATURE")
+  publishedAt    DateTime @default(now())
+  isActive       Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive, publishedAt])
+  @@map("ChangelogEntry")
 }

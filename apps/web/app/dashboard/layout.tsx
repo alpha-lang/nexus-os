@@ -5,6 +5,7 @@ import { apiFetch, logout as apiLogout } from '../../lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 import CommandPalette from '../../components/CommandPalette';
 import AnnouncementBanner from '../../components/AnnouncementBanner';
+import ChangelogDrawer from '../../components/ChangelogDrawer';
 import ImpersonationBanner from '../../components/ImpersonationBanner';
 
 // ═════════════════════════════════════════════════════════════
@@ -43,7 +44,9 @@ const ROUTE_LABELS: Record<string, string> = {
   storage: 'Stockage',
   'tenant-admins': 'Admins des Tenants',
   announcements: 'Annonces',
+  changelog: 'Changelog',
   'feature-flags': 'Feature Flags',
+  support: 'Support',
   maintenance: 'Maintenance',
   crm: 'CRM',
   partners: 'Partenaires',
@@ -158,6 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [impersonation, setImpersonation] = useState<any>(null);
 
   const role = user?.role || 'USER';
@@ -237,7 +241,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { path: '/dashboard/storage', label: 'Stockage', icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4' },
     { path: '/dashboard/tenant-admins', label: 'Admins des Tenants', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { path: '/dashboard/announcements', label: 'Annonces', icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z' },
+    { path: '/dashboard/changelog', label: 'Changelog', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
     { path: '/dashboard/feature-flags', label: 'Feature Flags', icon: 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9' },
+    { path: '/dashboard/support', label: 'Support', icon: 'M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414' },
     { path: '/dashboard/maintenance', label: 'Maintenance', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
     { path: '/dashboard/audit', label: 'Journal audit', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
     { path: '/dashboard/analytics', label: 'Analytics revenus', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
@@ -591,13 +597,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Notifications */}
           <button
-            onClick={(e) => { e.stopPropagation(); setNotifOpen(!notifOpen); }}
+            onClick={(e) => { e.stopPropagation(); setChangelogOpen(true); }}
             className="relative w-9 h-9 rounded-md hover:bg-slate-100 text-slate-600 flex items-center justify-center shrink-0"
+            title="Nouveautés"
           >
             <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-teal-500 rounded-full" />
           </button>
 
           {/* Avatar */}
@@ -700,6 +707,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
       </div>
 
+      <ChangelogDrawer open={changelogOpen} onClose={() => setChangelogOpen(false)} />
       <CommandPalette />
     </div>
   );
