@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Delete, Param, Query, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RefreshTokenService } from './refresh-token.service';
@@ -66,4 +66,63 @@ export class AuthController {
   async impersonateToken(@Body() body: { targetUserId: string }, @Req() req: any) {
     return this.authService.generateImpersonationToken(req.user, body.targetUserId);
   }
+
+  // ═══════════════════════════════════════════════════════════
+  //  SESSIONS
+  // ═══════════════════════════════════════════════════════════
+
+  /**
+   * Liste toutes les sessions (SUPER_ADMIN : toutes, sinon : ses propres sessions).
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  async listSessions(@Req() req: any, @Query() query: any) {
+    const user = req.user;
+    const isSuperAdmin = user.role === 'SUPER_ADMIN' && user.isOwner;
+
+    const filters: any = { take: query.take ? parseInt(query.take) : 200 };
+
+    if (!isSuperAdmin) {
+      // Un user normal ne voit que ses propres sessions
+      filters.userId = user.userId;
+    } else {
+      // SUPER_ADMIN : peut filtrer par user ou org
+      if (query.userId) filters.userId = query.userId;
+      if (query.organizationId) filters.organizationId = query.organizationId;
+    }
+
+    return this.refreshTokenService.listAllSessions(filters);
+  }
+
+  /**
+   * Stats des sessions (SUPER_ADMIN uniquement).
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions/stats')
+  async sessionsStats(@Req() req: any) {
+    const user = req.user;
+    if (!(user.role === 'SUPER_ADMIN' && user.isOwner)) {
+      throw new ForbiddenException('Accès réservé au Super Admin');
+    }
+    return this.refreshTokenService.getSessionsStats();
+  }
+
+  /**
+   * Révoque une session par ID.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions/:id')
+  async revokeSession(@Req() req: any, @Param('id') id: string) {
+    return this.refreshTokenService.revokeSessionById(id, req.user);
+  }
+
+  /**
+   * Révoque TOUTES les sessions d'un utilisateur.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions/user/:userId')
+  async revokeUserSessions(@Req() req: any, @Param('userId') userId: string) {
+    return this.refreshTokenService.revokeAllUserSessions(userId, req.user);
+  }
+
 }
