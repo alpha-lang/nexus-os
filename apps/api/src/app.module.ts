@@ -22,6 +22,7 @@ import { SearchModule } from './search/search.module';
 import { PosModule } from './pos/pos.module';
 import { CashModule } from './cash/cash.module';
 import { StockModule } from './stock/stock.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { StockModule } from './stock/stock.module';
     PosModule,
     CashModule,
     StockModule,
+    AuditModule,
   ],
   providers: [
     {
