@@ -23,6 +23,7 @@ import { PosModule } from './pos/pos.module';
 import { CashModule } from './cash/cash.module';
 import { StockModule } from './stock/stock.module';
 import { AuditModule } from './audit/audit.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { AuditModule } from './audit/audit.module';
     CashModule,
     StockModule,
     AuditModule,
+    AnalyticsModule,
   ],
   providers: [
     {
