@@ -87,6 +87,9 @@ export class SupportService {
     const priority = data.priority || 'NORMAL';
     const sla = computeSla(priority);
 
+    // ─── Auto-assignation : Super Admin avec le moins de tickets ouverts ───
+    const assignedToId = await this.autoAssignAdmin();
+
     return this.prisma.ticket.create({
       data: {
         reference,
@@ -97,11 +100,139 @@ export class SupportService {
         status: 'OPEN',
         organizationId: data.organizationId || user.organizationId,
         createdById: user.userId,
+        assignedToId,
         tags: Array.isArray(data.tags) ? data.tags : [],
         ...sla,
       },
-      include: { organization: true, createdBy: true },
+      include: { organization: true, createdBy: true, assignedTo: true },
     });
+  }
+
+  /**
+   * Trouve le Super Admin avec le moins de tickets actifs (OPEN + IN_PROGRESS)
+   */
+  private async autoAssignAdmin(): Promise<string | null> {
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: {
+          role: 'SUPER_ADMIN',
+          isOwner: true,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      if (admins.length === 0) return null;
+
+      // Compter les tickets actifs de chaque admin
+      const counts = await Promise.all(
+        admins.map(async (a) => {
+          const count = await this.prisma.ticket.count({
+            where: {
+              assignedToId: a.id,
+              status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] },
+            },
+          });
+          return { id: a.id, count };
+        }),
+      );
+
+      counts.sort((a, b) => a.count - b.count);
+      return counts[0].id;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Réassigne un ticket à un autre admin.
+   */
+  async reassign(user: any, ticketId: string, targetUserId: string | null) {
+    if (!this.isSuperAdmin(user)) throw new ForbiddenException('Réservé au Super Admin');
+    await this.findOne(user, ticketId);
+    return this.prisma.ticket.update({
+      where: { id: ticketId },
+      data: { assignedToId: targetUserId || null },
+      include: { assignedTo: { select: { id: true, email: true, name: true } } },
+    });
+  }
+
+  /**
+   * Stats SLA : taux de respect, délai moyen de réponse/résolution.
+   */
+  async getSlaStats(user: any) {
+    const where: any = {};
+    if (!this.isSuperAdmin(user)) {
+      if (!user.organizationId) throw new ForbiddenException('Organisation requise');
+      where.organizationId = user.organizationId;
+    }
+
+    const tickets = await this.prisma.ticket.findMany({
+      where,
+      select: {
+        status: true,
+        createdAt: true,
+        firstResponseAt: true,
+        resolvedAt: true,
+        slaResponseDeadline: true,
+        slaResolutionDeadline: true,
+        slaBreached: true,
+      },
+    });
+
+    const total = tickets.length;
+    if (total === 0) {
+      return {
+        total: 0,
+        slaRespected: 0,
+        slaRespectedPct: 0,
+        avgResponseMinutes: 0,
+        avgResolutionHours: 0,
+      };
+    }
+
+    // SLA respecté : pas breaché OU résolu avant deadline
+    let respected = 0;
+    let responseDeltas: number[] = [];
+    let resolutionDeltas: number[] = [];
+
+    for (const t of tickets) {
+      // SLA respect
+      const resolved = ['RESOLVED', 'CLOSED'].includes(t.status);
+      if (resolved && t.resolvedAt && t.slaResolutionDeadline) {
+        if (new Date(t.resolvedAt) <= new Date(t.slaResolutionDeadline)) respected++;
+      } else if (!resolved && !t.slaBreached) {
+        // Encore actif et pas en retard → compte comme respecté pour l'instant
+        respected++;
+      }
+
+      // Délai réponse : 1ère réponse - création
+      if (t.firstResponseAt) {
+        const delta = new Date(t.firstResponseAt).getTime() - new Date(t.createdAt).getTime();
+        responseDeltas.push(delta);
+      }
+
+      // Délai résolution
+      if (resolved && t.resolvedAt) {
+        const delta = new Date(t.resolvedAt).getTime() - new Date(t.createdAt).getTime();
+        resolutionDeltas.push(delta);
+      }
+    }
+
+    const avgResponseMs = responseDeltas.length > 0
+      ? responseDeltas.reduce((s, d) => s + d, 0) / responseDeltas.length
+      : 0;
+    const avgResolutionMs = resolutionDeltas.length > 0
+      ? resolutionDeltas.reduce((s, d) => s + d, 0) / resolutionDeltas.length
+      : 0;
+
+    return {
+      total,
+      slaRespected: respected,
+      slaRespectedPct: Math.round((respected / total) * 100),
+      avgResponseMinutes: Math.round(avgResponseMs / 60000),
+      avgResolutionHours: Math.round((avgResolutionMs / 3600000) * 10) / 10,
+    };
   }
 
   async update(user: any, id: string, data: any) {

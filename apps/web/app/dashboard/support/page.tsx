@@ -109,6 +109,10 @@ export default function SupportPage() {
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [slaStats, setSlaStats] = useState<any>(null);
+  const [macros, setMacros] = useState<any[]>([]);
+  const [showMacrosModal, setShowMacrosModal] = useState(false);
+  const [showMacrosDropdown, setShowMacrosDropdown] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -116,14 +120,22 @@ export default function SupportPage() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN' && user?.isOwner;
 
   async function load() {
-    const [me, t, s] = await Promise.all([
+    const [me, t, s, sla] = await Promise.all([
       apiFetch('/api/auth/me', { headers }).then((r) => r.json()),
       apiFetch('/api/support', { headers }).then((r) => r.json()),
       apiFetch('/api/support/stats', { headers }).then((r) => r.json()),
+      apiFetch('/api/support/sla-stats', { headers }).then((r) => r.ok ? r.json() : null).catch(() => null),
     ]);
     setUser(me);
     setTickets(Array.isArray(t) ? t : []);
     setStats(s);
+    setSlaStats(sla);
+
+    // Charger macros si super admin
+    if (me?.role === 'SUPER_ADMIN' && me?.isOwner) {
+      const m = await apiFetch('/api/support/macros', { headers }).then((r) => r.ok ? r.json() : []).catch(() => []);
+      setMacros(Array.isArray(m) ? m : []);
+    }
   }
 
   useEffect(() => { load().catch(console.error).finally(() => setLoading(false)); }, []);
@@ -212,6 +224,42 @@ export default function SupportPage() {
             <p className="text-2xl font-black text-red-600">{stats?.urgent || 0}</p>
           </div>
         </div>
+
+        {slaStats && slaStats.total > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 flex divide-x divide-slate-100 overflow-hidden">
+            <div className="flex-1 px-4 py-3">
+              <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">SLA respecté</p>
+              <div className="flex items-baseline gap-2">
+                <span className={'text-2xl font-black tabular-nums ' + (slaStats.slaRespectedPct >= 90 ? 'text-emerald-600' : slaStats.slaRespectedPct >= 70 ? 'text-amber-600' : 'text-red-600')}>
+                  {slaStats.slaRespectedPct}%
+                </span>
+                <span className="text-[11px] text-slate-400">{slaStats.slaRespected}/{slaStats.total}</span>
+              </div>
+            </div>
+            <div className="flex-1 px-4 py-3">
+              <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Réponse moy.</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 tabular-nums">{slaStats.avgResponseMinutes}</span>
+                <span className="text-[11px] text-slate-400">min</span>
+              </div>
+            </div>
+            <div className="flex-1 px-4 py-3">
+              <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Résolution moy.</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-slate-900 tabular-nums">{slaStats.avgResolutionHours}</span>
+                <span className="text-[11px] text-slate-400">h</span>
+              </div>
+            </div>
+            <div className="flex-1 px-4 py-3 bg-slate-50 flex items-center justify-center">
+              <a
+                href="/dashboard/support/macros"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition"
+              >
+                ⚡ Gérer les macros ({macros.length})
+              </a>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3">
           <input
