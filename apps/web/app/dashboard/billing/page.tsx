@@ -21,6 +21,19 @@ function monthLabel(d: string | Date) {
   return dt.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 }
 
+
+/**
+ * Retourne un badge de relance selon l'âge de la facture PENDING
+ */
+function getReminderBadge(date: string | Date, status: string) {
+  if (status !== 'PENDING') return null;
+  const days = Math.floor((Date.now() - new Date(date).getTime()) / 86400000);
+  if (days < 7) return null; // Pas encore de relance nécessaire
+  if (days < 14) return { label: `J+${days}`, color: 'bg-amber-100 text-amber-700 border-amber-300', icon: '⏰' };
+  if (days < 30) return { label: `J+${days}`, color: 'bg-orange-100 text-orange-700 border-orange-300', icon: '⚠️' };
+  return { label: `J+${days} — URGENT`, color: 'bg-red-100 text-red-700 border-red-300', icon: '🚨' };
+}
+
 export default function BillingPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,11 +135,28 @@ export default function BillingPage() {
       {/* Header Ledger */}
       <div>
         <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Grand Livre</p>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Facturation</h1>
           <a href="/dashboard/billing/config" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition">
             ⚙️ Config TVA
           </a>
+          <button
+            onClick={async () => {
+              const res = await apiFetch('/api/billing/export-accounting', {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `export-comptable-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition"
+          >
+            📊 Export comptable
+          </button>
         </div>
         <p className="text-slate-500 mt-1">
           {kpis.total} facture{kpis.total > 1 ? 's' : ''} · {kpis.countPaid} payee{kpis.countPaid > 1 ? 's' : ''} · {kpis.countPending} en attente
@@ -267,6 +297,16 @@ export default function BillingPage() {
                           <div className="w-24 shrink-0 text-center">
                             <p className="text-xs font-black text-slate-900 tabular-nums">{fmtDate(p.date)}</p>
                             <p className="text-[10px] text-slate-400 tabular-nums">{fmtTime(p.date)}</p>
+                            {(() => {
+                              const b = getReminderBadge(p.date, p.status);
+                              if (!b) return null;
+                              return (
+                                <span className={'inline-flex items-center gap-1 mt-1 text-[9px] font-black tracking-wide px-1.5 py-0.5 rounded border ' + b.color}>
+                                  <span>{b.icon}</span>
+                                  <span>{b.label}</span>
+                                </span>
+                              );
+                            })()}
                           </div>
 
                           {/* Separateur */}

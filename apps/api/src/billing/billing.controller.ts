@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -7,6 +8,11 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class BillingController {
   constructor(private readonly service: BillingService) {}
+
+  @Get('export-accounting')
+  exportAccounting(@Req() req: any, @Res() res: Response) {
+    return this.service.exportAccounting(res, req.user);
+  }
 
   @Get()
   findAll() {

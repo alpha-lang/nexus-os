@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePrice } from '../modules/pricing.util';
 
@@ -94,5 +95,74 @@ export class BillingService {
     const payment = await this.prisma.payment.findUnique({ where: { id } });
     if (!payment) throw new NotFoundException('Paiement introuvable');
     return this.prisma.payment.delete({ where: { id } });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  EXPORT COMPTABLE — CSV format expert-comptable
+  // ═══════════════════════════════════════════════════════════
+
+  async exportAccounting(res: Response, user: any) {
+    const payments = await this.prisma.payment.findMany({
+      include: {
+        organization: { select: { name: true, slug: true } },
+        subscription: { select: { id: true, billingPeriod: true } },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Récupérer les BillingConfig pour NIF
+    const configs = await this.prisma.billingConfig.findMany({
+      select: { organizationId: true, taxId: true, legalName: true },
+    });
+    const configByOrg = new Map(configs.map((c) => [c.organizationId, c]));
+
+    const headers = [
+      'N° facture',
+      'Date',
+      'Organisation',
+      'NIF',
+      'HT (Ar)',
+      'TVA (Ar)',
+      'TTC (Ar)',
+      'Statut',
+      'Méthode',
+      'Période',
+      'Note',
+    ];
+
+    const rows = payments.map((p, i) => {
+      const config = configByOrg.get(p.organizationId);
+      const year = new Date(p.date).getFullYear();
+      const invoiceNumber = `FAC-${year}-${String(i + 1).padStart(4, '0')}`;
+      const ttc = p.amount || 0;
+      const vatRate = 0.20;
+      const ht = ttc / (1 + vatRate);
+      const vat = ttc - ht;
+
+      return [
+        invoiceNumber,
+        new Date(p.date).toLocaleDateString('fr-FR'),
+        config?.legalName || p.organization?.name || '',
+        config?.taxId || '',
+        Math.round(ht).toString(),
+        Math.round(vat).toString(),
+        Math.round(ttc).toString(),
+        p.status || 'PENDING',
+        p.method || '',
+        p.subscription?.billingPeriod || '',
+        (p.note || '').replace(/[;\n]/g, ' ').slice(0, 100),
+      ];
+    });
+
+    // CSV avec séparateur ';' (format français Excel)
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';'))
+      .join('\n');
+
+    const filename = `export-comptable-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send('\ufeff' + csv);
   }
 }
