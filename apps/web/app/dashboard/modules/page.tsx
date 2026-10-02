@@ -328,6 +328,110 @@ export default function ModulesPage() {
         </div>
       </div>
 
+      {/* ═══ STATS ADOPTION ═══ */}
+      {(() => {
+        const withStats = modules.filter((m: any) => m.subscriberCount !== undefined);
+        if (withStats.length === 0) return null;
+
+        const topByMrr = [...withStats].sort((a: any, b: any) => (b.mrrGenerated || 0) - (a.mrrGenerated || 0)).slice(0, 5);
+        const topBySubscribers = [...withStats].sort((a: any, b: any) => (b.subscriberCount || 0) - (a.subscriberCount || 0)).slice(0, 5);
+        const totalMrr = withStats.reduce((s: number, m: any) => s + (m.mrrGenerated || 0), 0);
+        const totalSubs = withStats.reduce((s: number, m: any) => s + (m.subscriberCount || 0), 0);
+
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Top modules par MRR */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Top modules — MRR</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Contribution au revenu mensuel</p>
+                </div>
+                <span className="text-xs font-black text-emerald-600 tabular-nums">
+                  {totalMrr.toLocaleString('fr-FR')} Ar
+                </span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {topByMrr.map((m: any, i: number) => {
+                  const pct = totalMrr > 0 ? Math.round(((m.mrrGenerated || 0) / totalMrr) * 100) : 0;
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 px-4 py-2.5">
+                      <div className={'w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ' + (
+                        i === 0 ? 'bg-amber-400 text-white' :
+                        i === 1 ? 'bg-slate-300 text-slate-800' :
+                        i === 2 ? 'bg-orange-300 text-orange-900' :
+                        'bg-slate-100 text-slate-500'
+                      )}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-900 text-sm truncate">{m.name}</p>
+                        <div className="w-full h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full" style={{ width: Math.max(pct, 2) + '%' }} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-black text-emerald-600 tabular-nums">
+                          {(m.mrrGenerated || 0).toLocaleString('fr-FR')} Ar
+                        </p>
+                        <p className="text-[10px] text-slate-400">{pct}%</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {topByMrr.length === 0 && (
+                  <p className="p-6 text-center text-xs text-slate-400">Aucune donnée</p>
+                )}
+              </div>
+            </div>
+
+            {/* Top modules par abonnés */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Top modules — Abonnés</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Nombre de tenants actifs</p>
+                </div>
+                <span className="text-xs font-black text-blue-600 tabular-nums">
+                  {totalSubs} abt
+                </span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {topBySubscribers.map((m: any, i: number) => {
+                  const pct = totalSubs > 0 ? Math.round(((m.subscriberCount || 0) / totalSubs) * 100) : 0;
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 px-4 py-2.5">
+                      <div className={'w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ' + (
+                        i === 0 ? 'bg-blue-500 text-white' :
+                        i === 1 ? 'bg-blue-300 text-blue-900' :
+                        'bg-slate-100 text-slate-500'
+                      )}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-900 text-sm truncate">{m.name}</p>
+                        <div className="w-full h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full" style={{ width: Math.max(pct, 2) + '%' }} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-black text-slate-900 tabular-nums">
+                          {m.subscriberCount}
+                        </p>
+                        <p className="text-[10px] text-slate-400">{pct}%</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {topBySubscribers.length === 0 && (
+                  <p className="p-6 text-center text-xs text-slate-400">Aucune donnée</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Toolbar */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 space-y-3">
         <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
