@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { apiFetch, unwrap } from '../../../lib/api';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import { Modal, Button, FormField, Input, Select, Textarea } from '../../../components/ui';
+import OrganizationWizard from '../../../components/OrganizationWizard';
 
 // ═════════════════════════════════════════════════════════════
 //  CONSTANTES
@@ -100,6 +101,7 @@ export default function OrganizationsPage() {
 
   // Modal CRUD
   const [showModal, setShowModal] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [orgToDelete, setOrgToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -146,7 +148,13 @@ export default function OrganizationsPage() {
     setError(null);
   }
 
-  function openCreate() { resetForm(); setShowModal(true); }
+  function openCreate() { setShowWizard(true); }
+
+  function handleWizardSuccess(org: any) {
+    setShowWizard(false);
+    showToast(`Organisation "${org.name}" créée`);
+    load();
+  }
 
   function openEdit(org: any) {
     setEditing(org);
@@ -709,71 +717,60 @@ export default function OrganizationsPage() {
       )}
 
       {/* Modal create/edit */}
+      <OrganizationWizard
+        open={showWizard}
+        onClose={() => setShowWizard(false)}
+        onSuccess={handleWizardSuccess}
+      />
+
+      {/* Modal édition uniquement */}
       <Modal
-        open={showModal}
+        open={showModal && !!editing}
         onClose={() => { setShowModal(false); resetForm(); }}
-        title={editing ? 'Modifier l\'organisation' : 'Nouvelle organisation'}
-        subtitle={editing ? editing.name : 'Créez un nouveau tenant'}
-        icon={<span className="text-2xl font-bold">+</span>}
+        title={'Modifier l\'organisation'}
+        subtitle={editing?.name || ''}
+        icon={<span className="text-2xl font-bold">✎</span>}
         footer={
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => { setShowModal(false); resetForm(); }}>Annuler</Button>
             <button
               type="submit"
-              form="org-form"
+              form="org-edit-form"
               disabled={saving}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50"
+              className="flex-1 bg-linear-to-r from-blue-600 to-teal-500 text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50"
             >
-              {saving ? 'Enregistrement...' : editing ? 'Enregistrer' : 'Créer'}
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
             </button>
           </div>
         }
       >
-        <form id="org-form" onSubmit={save} className="space-y-6">
+        <form id="org-edit-form" onSubmit={save} className="space-y-6">
           {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">{error}</div>}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-4 bg-gradient-to-b from-blue-500 to-teal-500 rounded-full"></div>
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Identité</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Nom" required>
-                <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nirina Hotel" required />
-              </FormField>
-              <FormField label="Slug" required hint="Identifiant unique">
-                <Input type="text" value={slug} onChange={e => setSlug(e.target.value)} placeholder="nirina-hotel" className="font-mono" required />
-              </FormField>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Nom" required>
+              <Input type="text" value={name} onChange={e => setName(e.target.value)} required />
+            </FormField>
+            <FormField label="Slug" required hint="Identifiant unique">
+              <Input type="text" value={slug} onChange={e => setSlug(e.target.value)} className="font-mono" required />
+            </FormField>
           </div>
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-4 bg-gradient-to-b from-blue-500 to-teal-500 rounded-full"></div>
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Type et localisation</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Type">
-                <Select value={type} onChange={e => setType(e.target.value)}>
-                  {ORG_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </Select>
-              </FormField>
-              <FormField label="Ville">
-                <Input type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="Antananarivo" />
-              </FormField>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Type">
+              <Select value={type} onChange={e => setType(e.target.value)}>
+                {ORG_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Ville">
+              <Input type="text" value={city} onChange={e => setCity(e.target.value)} />
+            </FormField>
           </div>
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-4 bg-gradient-to-b from-blue-500 to-teal-500 rounded-full"></div>
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Email">
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="contact@nirina.com" />
-              </FormField>
-              <FormField label="Téléphone">
-                <Input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+261 34 12 345 67" />
-              </FormField>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Email">
+              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+            </FormField>
+            <FormField label="Téléphone">
+              <Input type="text" value={phone} onChange={e => setPhone(e.target.value)} />
+            </FormField>
           </div>
           <FormField label="Description">
             <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} />

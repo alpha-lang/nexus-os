@@ -140,8 +140,10 @@ async function main() {
   let created = 0;
   let existing = 0;
   for (const m of MODULES) {
+    // Détection par ROUTE (stable, unique, sans accents)
+    // → évite les doublons si on renomme un module avec/sans accents
     const exists = await prisma.module.findFirst({
-      where: { name: m.name, organizationId: nexusCorp.id },
+      where: { route: m.route, organizationId: nexusCorp.id },
     });
     if (!exists) {
       await prisma.module.create({
@@ -156,10 +158,10 @@ async function main() {
       });
       created++;
     } else {
-      // Mettre à jour le statut et la route si on a ajusté
+      // Mettre à jour name + types + status (permet de renommer sans doublon)
       await prisma.module.update({
         where: { id: exists.id },
-        data: { route: m.route, types: m.types, status: m.status },
+        data: { name: m.name, types: m.types, status: m.status, price: m.price },
       });
       existing++;
     }
