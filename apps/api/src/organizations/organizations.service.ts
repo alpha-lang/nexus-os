@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcryptjs';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
@@ -34,41 +35,131 @@ export class OrganizationsService {
   async create(dto: CreateOrganizationDto, user: any) {
     this.assertCanManage(user);
 
+    // ─── 1. Vérifications préalables ───
     const existing = await this.prisma.organization.findUnique({
       where: { slug: dto.slug },
     });
-    if (existing) throw new BadRequestException('Cette organisation existe déjà');
+    if (existing) {
+      throw new BadRequestException('Cette organisation existe déjà (slug pris)');
+    }
 
-    const organization = await this.prisma.organization.create({
-      data: {
-        name: dto.name,
-        slug: dto.slug,
-        type: dto.type ?? null,
-        city: dto.city ?? null,
-        email: dto.email ?? null,
-        phone: dto.phone ?? null,
-        description: dto.description ?? null,
-        status: dto.status ?? 'ACTIVE',
-      },
-    });
+    // ─── 2. Préparer l'admin (si fourni) ───
+    let hashedPassword: string | null = null;
+    let adminEmail: string | null = null;
+    if (dto.adminEmail && dto.adminPassword) {
+      const existingUser = await this.prisma.user.findFirst({
+        where: { email: dto.adminEmail },
+      });
+      if (existingUser) {
+        throw new BadRequestException(
+          `Un utilisateur avec l'email ${dto.adminEmail} existe déjà dans une autre organisation`,
+        );
+      }
+      hashedPassword = await bcrypt.hash(dto.adminPassword, 10);
+      adminEmail = dto.adminEmail;
+    }
 
-    await this.prisma.storageQuota.create({
-      data: {
-        organizationId: organization.id,
-        usedStorage: 0,
-        maxStorage: 500,
-      },
-    });
-
-    return this.prisma.organization.findUnique({
-      where: { id: organization.id },
-      include: {
-        subscriptions: {
-          include: { activeModules: { include: { module: true } } },
+    // ─── 3. Transaction complète ───
+    return this.prisma.$transaction(async (tx) => {
+      // 3a. Créer l'organisation
+      const organization = await tx.organization.create({
+        data: {
+          name: dto.name,
+          slug: dto.slug,
+          type: dto.type ?? null,
+          city: dto.city ?? null,
+          email: dto.email ?? null,
+          phone: dto.phone ?? null,
+          description: dto.description ?? null,
+          status: dto.status ?? 'ACTIVE',
         },
-        storageQuota: true,
-        users: { select: SAFE_USER_SELECT },
-      },
+      });
+
+      // 3b. StorageQuota par défaut
+      await tx.storageQuota.create({
+        data: {
+          organizationId: organization.id,
+          usedStorage: 0,
+          maxStorage: 500,
+        },
+      });
+
+      // 3c. Admin user (si email + password fournis)
+      let adminUser = null;
+      if (hashedPassword && adminEmail) {
+        adminUser = await tx.user.create({
+          data: {
+            email: adminEmail,
+            password: hashedPassword,
+            name: dto.adminName || dto.name,
+            role: 'ADMIN',
+            isOwner: true,
+            isActive: true,
+            organizationId: organization.id,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            isOwner: true,
+            isActive: true,
+            createdAt: true,
+          },
+        });
+      }
+
+      // 3d. Subscription (si modules ou statut fournis)
+      let subscription = null;
+      const shouldCreateSub =
+        dto.subscriptionStatus || (dto.moduleIds && dto.moduleIds.length > 0);
+
+      if (shouldCreateSub) {
+        subscription = await tx.subscription.create({
+          data: {
+            organizationId: organization.id,
+            status: dto.subscriptionStatus || 'TRIAL',
+            billingPeriod: dto.billingPeriod || 'MONTHLY',
+            endDate: dto.endDate ? new Date(dto.endDate) : null,
+          },
+        });
+
+        // 3e. Rattacher les modules
+        if (dto.moduleIds && dto.moduleIds.length > 0) {
+          // Vérifier que les modules existent
+          const validModules = await tx.module.findMany({
+            where: { id: { in: dto.moduleIds } },
+            select: { id: true },
+          });
+          const validIds = new Set(validModules.map((m) => m.id));
+
+          for (const moduleId of dto.moduleIds) {
+            if (!validIds.has(moduleId)) continue;
+            await tx.subscriptionModule.create({
+              data: {
+                subscriptionId: subscription.id,
+                moduleId,
+                isActive: true,
+              },
+            });
+          }
+        }
+      }
+
+      // ─── 4. Retour complet ───
+      return tx.organization.findUnique({
+        where: { id: organization.id },
+        include: {
+          subscriptions: {
+            include: {
+              activeModules: { include: { module: true } },
+            },
+          },
+          storageQuota: true,
+          users: { select: SAFE_USER_SELECT },
+          _count: { select: { users: true, partners: true } },
+        },
+      });
     });
   }
 
