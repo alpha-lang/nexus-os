@@ -2,7 +2,18 @@ import {
   IsEmail, IsString, IsOptional, IsIn, MinLength, MaxLength, Matches,
 } from 'class-validator';
 
-export const ORG_TYPES = ['COMMERCE', 'HOTEL', 'ONG', 'MICROFINANCE', 'BANQUE', 'INTERNE'] as const;
+export const ORG_TYPES = [
+  'COMMERCE',
+  'HOTEL',
+  'RESTAURANT',
+  'ECOLE',
+  'CLINIQUE',
+  'ONG',
+  'MICROFINANCE',
+  'BANQUE',
+  'INTERNE',
+] as const;
+
 export const ORG_STATUSES = ['ACTIVE', 'SUSPENDED', 'INACTIVE'] as const;
 export type OrgType = (typeof ORG_TYPES)[number];
 export type OrgStatus = (typeof ORG_STATUSES)[number];

@@ -12,6 +12,9 @@ import { Modal, Button, FormField, Input, Select, Textarea } from '../../../comp
 const ORG_TYPES = [
   { value: 'COMMERCE', label: 'Commerce', short: 'COM', grad: 'from-blue-500 to-cyan-500' },
   { value: 'HOTEL', label: 'Hôtel', short: 'HTL', grad: 'from-purple-500 to-pink-500' },
+  { value: 'RESTAURANT', label: 'Restaurant', short: 'RST', grad: 'from-orange-500 to-red-600' },
+  { value: 'ECOLE', label: 'École', short: 'ECL', grad: 'from-sky-500 to-indigo-500' },
+  { value: 'CLINIQUE', label: 'Clinique', short: 'CLN', grad: 'from-teal-500 to-emerald-600' },
   { value: 'ONG', label: 'ONG', short: 'ONG', grad: 'from-green-500 to-emerald-500' },
   { value: 'MICROFINANCE', label: 'Microfinance', short: 'MFC', grad: 'from-amber-500 to-orange-500' },
   { value: 'BANQUE', label: 'Banque', short: 'BNQ', grad: 'from-slate-600 to-slate-800' },
@@ -368,7 +371,7 @@ export default function OrganizationsPage() {
               placeholder="Rechercher un tenant par nom, slug, ville…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 focus:bg-white transition"
+              className="w-full max-w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 focus:bg-white transition"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700">✕</button>
@@ -399,7 +402,8 @@ export default function OrganizationsPage() {
         </div>
 
         {/* Chips de filtre type */}
-        <div className="flex flex-wrap gap-1.5">
+        <div className="w-full overflow-x-auto scroll-x pb-1">
+        <div className="flex flex-nowrap items-center gap-1.5 w-max">
           <button
             onClick={() => setFilterType('ALL')}
             className={'px-3 py-1.5 rounded-lg text-xs font-bold transition ' + (filterType === 'ALL' ? 'bg-slate-900 text-white shadow' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-400')}
@@ -415,6 +419,7 @@ export default function OrganizationsPage() {
               {t.label} <span className="opacity-60 ml-1">{counts[t.value] || 0}</span>
             </button>
           ))}
+          </div>
         </div>
 
         {/* Filtres avancés */}
