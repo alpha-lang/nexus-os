@@ -6,10 +6,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/pagination/paginate';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class HotelService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private webhooks: WebhooksService,
+  ) {}
 
   private async getOrganizationId(user: any): Promise<string> {
     if (user.organizationId) return user.organizationId;
@@ -356,20 +360,36 @@ export class HotelService {
     const orgId = await this.getOrganizationId(user);
     return this.prisma.roomType.findMany({
       where: { organizationId: orgId },
-      include: { _count: { select: { rooms: true } } },
-      orderBy: { basePrice: 'asc' },
+      include: {
+        _count: { select: { rooms: true } },
+        rooms: { select: { status: true } },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { basePrice: 'asc' }],
     });
   }
 
   async createRoomType(user: any, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Accès refusé');
     const orgId = await this.getOrganizationId(user);
+
+    if (!data.name?.trim()) throw new BadRequestException('Le nom est requis');
+
     return this.prisma.roomType.create({
       data: {
-        name: data.name,
-        description: data.description || null,
-        capacity: data.capacity || 1,
-        basePrice: data.basePrice || 0,
+        name: data.name.trim(),
+        description: data.description?.trim() || null,
+        adultCapacity: parseInt(data.adultCapacity) || 1,
+        childCapacity: parseInt(data.childCapacity) || 0,
+        basePrice: parseFloat(data.basePrice) || 0,
+        weekendPrice: data.weekendPrice != null ? parseFloat(data.weekendPrice) : null,
+        surface: data.surface != null ? parseFloat(data.surface) : null,
+        bedType: data.bedType || null,
+        bedCount: parseInt(data.bedCount) || 1,
+        amenities: Array.isArray(data.amenities) ? data.amenities : [],
+        photos: Array.isArray(data.photos) ? data.photos.filter((p: string) => p?.trim()) : [],
+        color: data.color || '#14b8a6',
+        sortOrder: parseInt(data.sortOrder) || 0,
+        isActive: data.isActive !== false,
         organizationId: orgId,
       },
     });
@@ -382,8 +402,22 @@ export class HotelService {
       data: {
         name: data.name ?? undefined,
         description: data.description ?? undefined,
-        capacity: data.capacity ?? undefined,
-        basePrice: data.basePrice ?? undefined,
+        adultCapacity: data.adultCapacity != null ? parseInt(data.adultCapacity) : undefined,
+        childCapacity: data.childCapacity != null ? parseInt(data.childCapacity) : undefined,
+        basePrice: data.basePrice != null ? parseFloat(data.basePrice) : undefined,
+        weekendPrice: data.weekendPrice !== undefined
+          ? (data.weekendPrice ? parseFloat(data.weekendPrice) : null)
+          : undefined,
+        surface: data.surface !== undefined
+          ? (data.surface ? parseFloat(data.surface) : null)
+          : undefined,
+        bedType: data.bedType ?? undefined,
+        bedCount: data.bedCount != null ? parseInt(data.bedCount) : undefined,
+        amenities: Array.isArray(data.amenities) ? data.amenities : undefined,
+        photos: Array.isArray(data.photos) ? data.photos.filter((p: string) => p?.trim()) : undefined,
+        color: data.color ?? undefined,
+        sortOrder: data.sortOrder != null ? parseInt(data.sortOrder) : undefined,
+        isActive: data.isActive ?? undefined,
       },
     });
   }
@@ -395,7 +429,11 @@ export class HotelService {
       include: { _count: { select: { rooms: true } } },
     });
     if (!roomType) throw new NotFoundException('Type introuvable');
-    if (roomType._count.rooms > 0) throw new BadRequestException('Des chambres utilisent ce type');
+    if (roomType._count.rooms > 0) {
+      throw new BadRequestException(
+        `Impossible : ${roomType._count.rooms} chambre(s) utilisent ce type. Changez leur type d'abord.`,
+      );
+    }
     return this.prisma.roomType.delete({ where: { id } });
   }
 
@@ -411,16 +449,30 @@ export class HotelService {
   async createRoom(user: any, data: any) {
     if (!this.canWrite(user)) throw new ForbiddenException('Accès refusé');
     const orgId = await this.getOrganizationId(user);
+
     const existing = await this.prisma.room.findFirst({
       where: { organizationId: orgId, number: data.number },
     });
     if (existing) throw new BadRequestException(`La chambre ${data.number} existe déjà.`);
+
+    // Vérifier que le type existe
+    const roomType = await this.prisma.roomType.findFirst({
+      where: { id: data.roomTypeId, organizationId: orgId },
+    });
+    if (!roomType) throw new BadRequestException('Type de chambre introuvable');
+
     return this.prisma.room.create({
       data: {
-        number: data.number,
-        floor: data.floor ?? null,
+        number: data.number.trim(),
+        floor: data.floor != null ? parseInt(data.floor) : null,
         status: data.status || 'AVAILABLE',
-        notes: data.notes || null,
+        view: data.view || null,
+        isAccessible: !!data.isAccessible,
+        hasBalcony: !!data.hasBalcony,
+        notes: data.notes?.trim() || null,
+        internalNotes: data.internalNotes?.trim() || null,
+        maintenanceDate: data.maintenanceDate ? new Date(data.maintenanceDate) : null,
+        photos: Array.isArray(data.photos) ? data.photos.filter((p: string) => p?.trim()) : [],
         roomTypeId: data.roomTypeId,
         organizationId: orgId,
       },
@@ -434,9 +486,17 @@ export class HotelService {
       where: { id },
       data: {
         number: data.number ?? undefined,
-        floor: data.floor ?? undefined,
+        floor: data.floor !== undefined ? (data.floor != null ? parseInt(data.floor) : null) : undefined,
         status: data.status ?? undefined,
+        view: data.view !== undefined ? (data.view || null) : undefined,
+        isAccessible: data.isAccessible ?? undefined,
+        hasBalcony: data.hasBalcony ?? undefined,
         notes: data.notes ?? undefined,
+        internalNotes: data.internalNotes ?? undefined,
+        maintenanceDate: data.maintenanceDate !== undefined
+          ? (data.maintenanceDate ? new Date(data.maintenanceDate) : null)
+          : undefined,
+        photos: Array.isArray(data.photos) ? data.photos.filter((p: string) => p?.trim()) : undefined,
         roomTypeId: data.roomTypeId ?? undefined,
       },
       include: { roomType: true },
@@ -510,7 +570,7 @@ export class HotelService {
     const totalAmount = data.totalAmount ?? nights * (room.roomType?.basePrice || 0);
 
     // Transaction SERIALIZABLE : empêche la surréservation en cas de concurrence
-    return this.prisma.$transaction(
+    const created = await this.prisma.$transaction(
       async (tx) => {
         // Re-check conflit DANS la transaction
         const conflict = await tx.reservation.findFirst({
@@ -547,6 +607,19 @@ export class HotelService {
       },
       { isolationLevel: 'Serializable' },
     );
+
+    this.webhooks.dispatch(orgId, 'reservation.created', {
+      id: created.id,
+      reference: created.reference,
+      customer: created.customer?.firstName + ' ' + created.customer?.lastName,
+      roomNumber: created.room?.number,
+      checkInDate: created.checkInDate,
+      checkOutDate: created.checkOutDate,
+      totalAmount: created.totalAmount,
+      status: created.status,
+    });
+
+    return created;
   }
 
   private async generateReferenceInTx(tx: any, orgId: string): Promise<string> {
@@ -594,7 +667,7 @@ export class HotelService {
     if (!['CONFIRMED', 'PENDING', 'DEPOSIT_PAID', 'QUOTED'].includes(r.status)) {
       throw new BadRequestException('Check-in impossible');
     }
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.room.update({ where: { id: r.roomId }, data: { status: 'OCCUPIED' } });
       return tx.reservation.update({
         where: { id },
@@ -602,13 +675,23 @@ export class HotelService {
         include: { customer: true, room: { include: { roomType: true } } },
       });
     });
+
+    this.webhooks.dispatch(r.organizationId, 'reservation.checked_in', {
+      id: result.id,
+      reference: result.reference,
+      customer: result.customer?.firstName + ' ' + result.customer?.lastName,
+      roomNumber: result.room?.number,
+      checkedInAt: result.checkedInAt,
+    });
+
+    return result;
   }
 
   async checkOut(user: any, id: string) {
     if (!this.canWrite(user)) throw new ForbiddenException('Accès refusé');
     const r = await this.findOneReservation(user, id);
     if (r.status !== 'CHECKED_IN') throw new BadRequestException('Pas en cours');
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.room.update({ where: { id: r.roomId }, data: { status: 'CLEANING' } });
       return tx.reservation.update({
         where: { id },
@@ -616,6 +699,18 @@ export class HotelService {
         include: { customer: true, room: { include: { roomType: true } } },
       });
     });
+
+    this.webhooks.dispatch(r.organizationId, 'reservation.checked_out', {
+      id: result.id,
+      reference: result.reference,
+      customer: result.customer?.firstName + ' ' + result.customer?.lastName,
+      roomNumber: result.room?.number,
+      totalAmount: result.totalAmount,
+      paidAmount: result.paidAmount,
+      checkedOutAt: result.checkedOutAt,
+    });
+
+    return result;
   }
 
   async getDashboard(user: any) {

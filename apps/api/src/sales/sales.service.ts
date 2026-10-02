@@ -1,9 +1,13 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class SalesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private webhooks: WebhooksService,
+  ) {}
 
   private async isInternalUser(user: any): Promise<boolean> {
     if (user.role === 'SUPER_ADMIN') return true;
@@ -66,7 +70,17 @@ export class SalesService {
         where: { id: catalogItem.id },
         data: { stock: catalogItem.stock - data.quantity },
       });
-      return this.prisma.sale.findUnique({ where: { id: sale.id }, include: { customer: true, catalogItem: true } });
+      const full = await this.prisma.sale.findUnique({ where: { id: sale.id }, include: { customer: true, catalogItem: true } });
+
+      this.webhooks.dispatch(organizationId, 'sale.completed', {
+        id: full.id,
+        quantity: full.quantity,
+        total: full.total,
+        itemName: full.catalogItem?.name,
+        customer: full.customer?.name,
+      });
+
+      return full;
     }
 
     if (data.moduleId) {
@@ -82,7 +96,17 @@ export class SalesService {
           organizationId,
         },
       });
-      return this.prisma.sale.findUnique({ where: { id: sale.id }, include: { customer: true, module: true } });
+      const full = await this.prisma.sale.findUnique({ where: { id: sale.id }, include: { customer: true, module: true } });
+
+      this.webhooks.dispatch(organizationId, 'sale.completed', {
+        id: full.id,
+        quantity: full.quantity,
+        total: full.total,
+        itemName: full.module?.name,
+        customer: full.customer?.name,
+      });
+
+      return full;
     }
 
     throw new BadRequestException('Produit ou module requis');

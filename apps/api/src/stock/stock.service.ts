@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/pagination/paginate';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class StockService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private webhooks: WebhooksService,
+  ) {}
 
   private async getOrganizationId(user: any): Promise<string> {
     if (user.organizationId) return user.organizationId;
@@ -678,7 +682,7 @@ export class StockService {
     // Le UPDATE conditionnel (stock >= qty) est atomique :
     // si 0 ligne affectée → stock insuffisant (race-safe).
     // ═══════════════════════════════════════════════════════════
-    return this.prisma.$transaction(async (tx) => {
+    const createdMovement = await this.prisma.$transaction(async (tx) => {
       const item = await tx.stockItem.findFirst({
         where: { id: data.itemId, organizationId: orgId },
       });
@@ -741,6 +745,11 @@ export class StockService {
 
       return movement;
     });
+
+    // ─── Vérifie le niveau de stock après le mouvement ───
+    this.checkStockAlerts(orgId, data.itemId).catch(() => {});
+
+    return createdMovement;
   }
 
   async removeMovement(user: any, id: string) {
@@ -1354,5 +1363,38 @@ export class StockService {
     }
 
     return { reference, adjustments, count: adjustments.length };
+  }
+
+  /**
+   * Vérifie le niveau de stock après un mouvement et dispatch
+   * stock.low ou stock.out si nécessaire.
+   */
+  private async checkStockAlerts(orgId: string, itemId: string) {
+    try {
+      const item = await this.prisma.stockItem.findUnique({ where: { id: itemId } });
+      if (!item) return;
+
+      if (item.currentStock <= 0) {
+        this.webhooks.dispatch(orgId, 'stock.out', {
+          id: item.id,
+          name: item.name,
+          sku: item.sku,
+          currentStock: 0,
+          minStock: item.minStock,
+          unit: item.unit,
+        });
+      } else if (item.currentStock <= item.minStock) {
+        this.webhooks.dispatch(orgId, 'stock.low', {
+          id: item.id,
+          name: item.name,
+          sku: item.sku,
+          currentStock: item.currentStock,
+          minStock: item.minStock,
+          unit: item.unit,
+        });
+      }
+    } catch (err) {
+      console.error('[checkStockAlerts]', err);
+    }
   }
 }

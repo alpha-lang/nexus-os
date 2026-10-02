@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { paginate } from '../common/pagination/paginate';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class PosService {
   private readonly logger = new Logger(PosService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private webhooks: WebhooksService,
+  ) {}
 
   /**
    * Déstocke automatiquement les ingrédients des recettes liées à un MenuItem.
@@ -400,7 +404,7 @@ export class PosService {
     }
 
     // ─── Transaction unique : Order + Payment + CashMovement + CashRegister ───
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const order = await tx.restaurantOrder.findFirst({
         where: { id: orderId, organizationId: orgId },
         include: { items: true },
@@ -460,6 +464,28 @@ export class PosService {
 
       return updated;
     });
+
+    // ─── Dispatch webhooks (fire & forget) ───
+    const orderData = {
+      id: result.id,
+      total: result.total,
+      paidAmount: result.paidAmount,
+      paymentStatus: result.paymentStatus,
+      method: (data as any)?.method || 'CASH',
+      tableNumber: (result as any).table?.number,
+      roomNumber: result.roomNumber,
+      itemsCount: (result as any).items?.length || 0,
+    };
+
+    if (result.paymentStatus === 'PAID') {
+      this.webhooks.dispatch(orgId, 'pos.sale_completed', orderData);
+      this.webhooks.dispatch(orgId, 'payment.received', {
+        ...orderData,
+        source: 'POS',
+      });
+    }
+
+    return result;
   }
 
   /**

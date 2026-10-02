@@ -411,8 +411,23 @@ model RoomType {
   id             String       @id @default(cuid())
   name           String
   description    String?
-  capacity       Int          @default(1)
+  // Capacité
+  adultCapacity  Int          @default(1)
+  childCapacity  Int          @default(0)
+  // Tarification
   basePrice      Float        @default(0)
+  weekendPrice   Float?
+  // Détails physiques
+  surface        Float?
+  bedType        String?      // single | double | twin | king | sofa_bed
+  bedCount       Int          @default(1)
+  // Média & équipements
+  amenities      String[]     @default([])
+  photos         String[]     @default([])
+  // Organisation
+  color          String       @default("#14b8a6")
+  sortOrder      Int          @default(0)
+  isActive       Boolean      @default(true)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   rooms          Room[]
@@ -425,7 +440,18 @@ model Room {
   number         String
   floor          Int?
   status         RoomStatus          @default(AVAILABLE)
-  notes          String?
+  // Détails physiques
+  view           String?             // sea | garden | city | pool | mountain | courtyard
+  isAccessible   Boolean             @default(false)  // PMR
+  hasBalcony     Boolean             @default(false)
+  // Notes
+  notes          String?             // visible équipe
+  internalNotes  String?             // notes privées (jamais exposées au client)
+  // Maintenance
+  maintenanceDate DateTime?
+  // Média
+  photos         String[]            @default([])
+  // Relations
   roomTypeId     String
   roomType       RoomType            @relation(fields: [roomTypeId], references: [id])
   organizationId String
