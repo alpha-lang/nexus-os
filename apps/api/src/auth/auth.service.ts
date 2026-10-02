@@ -19,8 +19,45 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findFirst({ where: { email: dto.email  } });
-    if (!user) throw new UnauthorizedException('Identifiants invalides');
+    // Multi-tenant : un même email peut exister dans plusieurs orgs
+    const users = await this.prisma.user.findMany({
+      where: { email: dto.email },
+      include: {
+        organization: { select: { id: true, name: true, slug: true } },
+      },
+    });
+
+    // Cas 1 : aucun user → erreur générique (ne pas révéler)
+    if (users.length === 0) {
+      throw new UnauthorizedException('Identifiants invalides');
+    }
+
+    // Cas 2 : plusieurs users → exiger organizationSlug
+    let user: (typeof users)[number];
+    if (users.length === 1) {
+      user = users[0];
+    } else {
+      if (!dto.organizationSlug) {
+        // On lance une erreur typée que le front pourra parser
+        throw new UnauthorizedException({
+          statusCode: 401,
+          error: 'MULTI_ORG',
+          message: 'Cet email est associé à plusieurs organisations. Précisez organizationSlug.',
+          organizations: users
+            .filter((u) => u.organization)
+            .map((u) => ({
+              slug: u.organization!.slug,
+              name: u.organization!.name,
+            })),
+        });
+      }
+      const match = users.find((u) => u.organization?.slug === dto.organizationSlug);
+      if (!match) {
+        throw new UnauthorizedException('Identifiants invalides');
+      }
+      user = match;
+    }
+
     if (!user.isActive) throw new UnauthorizedException('Compte désactivé');
 
     const isValid = await bcrypt.compare(dto.password, user.password);
@@ -35,7 +72,7 @@ export class AuthService {
     const tokens = await this.refreshTokenService.generateTokens(payload);
     return {
       ...tokens,
-      token: tokens.accessToken, // Compat avec l'ancien frontend
+      token: tokens.accessToken,
       user: {
         id: user.id,
         email: user.email,
