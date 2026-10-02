@@ -555,10 +555,10 @@ export default function OrganizationsPage() {
 
       {/* KPI bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-slate-900 rounded-2xl p-3 sm:p-4 text-white">
-          <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Tenants clients</p>
-          <p className="text-xl sm:text-xl sm:text-2xl font-black tabular-nums text-teal-400">{kpis.clients}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">{kpis.active} actifs</p>
+        <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200">
+          <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Tenants clients</p>
+          <p className="text-xl sm:text-xl sm:text-2xl font-black tabular-nums text-slate-900">{kpis.clients}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{kpis.active} actifs</p>
         </div>
         <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200">
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Utilisateurs</p>
