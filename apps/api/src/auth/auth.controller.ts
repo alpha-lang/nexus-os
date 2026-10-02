@@ -59,4 +59,11 @@ export class AuthController {
   async me(@Req() req: any) {
     return this.authService.getProfile(req.user.userId);
   }
+
+  // ═══ Impersonation : génère un token pour l'admin cible ═══
+  @UseGuards(JwtAuthGuard)
+  @Post('impersonate-token')
+  async impersonateToken(@Body() body: { targetUserId: string }, @Req() req: any) {
+    return this.authService.generateImpersonationToken(req.user, body.targetUserId);
+  }
 }

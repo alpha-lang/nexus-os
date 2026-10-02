@@ -107,6 +107,66 @@ export class AuthService {
     };
   }
 
+  // ═══════════════════════════════════════════════════════════
+  //  IMPERSONATION — génère un access token pour le target
+  // ═══════════════════════════════════════════════════════════
+
+  async generateImpersonationToken(actor: any, targetUserId: string) {
+    // Vérifier que l'actor est bien SUPER_ADMIN owner
+    const actorUser = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: { id: true, role: true, isOwner: true, isActive: true },
+    });
+
+    if (!actorUser || !actorUser.isActive) {
+      throw new UnauthorizedException('Utilisateur acteur introuvable');
+    }
+    if (actorUser.role !== 'SUPER_ADMIN' || !actorUser.isOwner) {
+      throw new UnauthorizedException('Seul un SUPER_ADMIN owner peut impersonner');
+    }
+
+    // Charger le user cible
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true, email: true, role: true, isActive: true, isOwner: true,
+        organizationId: true,
+      },
+    });
+
+    if (!target) throw new UnauthorizedException('Utilisateur cible introuvable');
+    if (!target.isActive) throw new UnauthorizedException('Utilisateur cible désactivé');
+    if (target.organizationId === null) {
+      throw new UnauthorizedException('Utilisateur cible sans organisation');
+    }
+
+    // Générer un access token court (1h) avec claim impersonatedBy
+    const payload = {
+      userId: target.id,
+      role: target.role,
+      organizationId: target.organizationId,
+      isOwner: target.isOwner,
+      // ═══ Claim d'impersonation ═══
+      impersonatedBy: actorUser.id,
+      impersonatedAt: new Date().toISOString(),
+    };
+
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+
+    return {
+      accessToken,
+      expiresIn: 3600,
+      impersonated: true,
+      target: {
+        id: target.id,
+        email: target.email,
+        role: target.role,
+        organizationId: target.organizationId,
+      },
+      impersonatedBy: actorUser.id,
+    };
+  }
+
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findFirst({ where: { email: dto.email  } });
     if (existing) throw new ConflictException('Email déjà utilisé');

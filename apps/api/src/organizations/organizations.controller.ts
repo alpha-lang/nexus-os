@@ -60,6 +60,12 @@ export class OrganizationsController {
     return this.service.reactivate(id, req.user);
   }
 
+  // ═══ Impersonation ═══
+  @Post(':id/impersonate')
+  impersonate(@Param('id') id: string, @Req() req: any) {
+    return this.service.impersonate(id, req.user);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: any) {
     return this.service.remove(id, req.user);

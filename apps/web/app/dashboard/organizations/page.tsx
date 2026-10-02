@@ -126,6 +126,9 @@ export default function OrganizationsPage() {
   const [suspendModal, setSuspendModal] = useState<any>(null);
   const [reactivateModal, setReactivateModal] = useState<any>(null);
   const [reactivating, setReactivating] = useState(false);
+  const [impersonateModal, setImpersonateModal] = useState<any>(null);
+  const [impersonating, setImpersonating] = useState(false);
+  const [impersonateError, setImpersonateError] = useState<string | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
   const [suspending, setSuspending] = useState(false);
   const [suspendError, setSuspendError] = useState<string | null>(null);
@@ -280,6 +283,76 @@ export default function OrganizationsPage() {
       }
     } finally {
       setReactivating(false);
+    }
+  }
+
+  // ═══ Impersonation ═══
+  function openImpersonateModal(org: any) {
+    setOpenMenu(null);
+    setImpersonateError(null);
+    setImpersonateModal(org);
+  }
+
+  async function confirmImpersonate() {
+    if (!impersonateModal) return;
+    const org = impersonateModal;
+    setImpersonating(true);
+    setImpersonateError(null);
+
+    try {
+      // 1. Demander un token d'impersonation
+      const res = await apiFetch(`/api/organizations/${org.id}/impersonate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Erreur');
+      }
+
+      const { targetUser } = await res.json();
+
+      // 2. Générer le token
+      const tokenRes = await apiFetch('/api/auth/impersonate-token', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ targetUserId: targetUser.id }),
+      });
+
+      if (!tokenRes.ok) {
+        const d = await tokenRes.json();
+        throw new Error(d.message || 'Erreur token');
+      }
+
+      const { accessToken } = await tokenRes.json();
+
+      // 3. Sauvegarder le token original
+      const originalToken = localStorage.getItem('token');
+      const originalRefresh = localStorage.getItem('refreshToken');
+      localStorage.setItem('impersonationOriginal', JSON.stringify({
+        token: originalToken,
+        refreshToken: originalRefresh,
+      }));
+
+      // 4. Infos impersonation (pour le bandeau)
+      localStorage.setItem('impersonation', JSON.stringify({
+        target: targetUser,
+        organization: org,
+        startedAt: new Date().toISOString(),
+      }));
+
+      // 5. Remplacer le token
+      localStorage.setItem('token', accessToken);
+      localStorage.removeItem('refreshToken');
+
+      // 6. Redirect
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      showToast(err.message);
     }
   }
 
@@ -666,6 +739,18 @@ export default function OrganizationsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
+                          {(org.status || 'ACTIVE') === 'ACTIVE' && org.type !== 'INTERNE' && (
+                            <button
+                              onClick={() => openImpersonateModal(org)}
+                              title="Se connecter en tant que"
+                              className="w-7 h-7 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-600 flex items-center justify-center transition"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
+                          )}
                           {(org.status || 'ACTIVE') === 'ACTIVE' ? (
                             <button
                               onClick={() => openSuspendModal(org)}
@@ -990,6 +1075,67 @@ export default function OrganizationsPage() {
           <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs text-slate-600 flex items-start gap-2">
             <span className="text-base">💡</span>
             <p>Le motif de suspension précédent sera effacé. Vous pourrez suspendre à nouveau avec un nouveau motif à tout moment.</p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal Impersonation */}
+      <Modal
+        open={!!impersonateModal}
+        onClose={() => { setImpersonateModal(null); setImpersonateError(null); }}
+        title="Se connecter en tant que"
+        subtitle={impersonateModal?.name || ''}
+        icon={<span className="text-2xl">👁️</span>}
+        size="md"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setImpersonateModal(null); setImpersonateError(null); }}>
+              Annuler
+            </Button>
+            <button
+              type="button"
+              onClick={confirmImpersonate}
+              disabled={impersonating}
+              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-500 text-white py-2.5 rounded-xl font-bold transition disabled:opacity-50"
+            >
+              {impersonating ? 'Connexion...' : '👁️ Se connecter'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {impersonateError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+              {impersonateError}
+            </div>
+          )}
+
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl shrink-0">👁️</div>
+              <div className="flex-1">
+                <p className="text-sm text-purple-900 leading-relaxed">
+                  Vous allez vous connecter en tant qu'<strong>administrateur de {impersonateModal?.name}</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2">
+              Informations
+            </p>
+            <ul className="text-xs text-slate-700 space-y-1.5">
+              <li>• Vous serez redirigé vers leur dashboard</li>
+              <li>• Un bandeau rouge apparaîtra en haut</li>
+              <li>• Vous pourrez quitter à tout moment</li>
+              <li>• L'action sera tracée dans l'audit log</li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
+            <span className="shrink-0">⚠️</span>
+            <p>Toutes vos actions seront enregistrées sous l'identité de l'admin cible. Utilisez uniquement pour du support légitime.</p>
           </div>
         </div>
       </Modal>

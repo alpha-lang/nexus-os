@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { apiFetch, logout as apiLogout } from '../../lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 import CommandPalette from '../../components/CommandPalette';
+import ImpersonationBanner from '../../components/ImpersonationBanner';
 
 // ═════════════════════════════════════════════════════════════
 //  HOOKS
@@ -152,6 +153,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [impersonation, setImpersonation] = useState<any>(null);
 
   const role = user?.role || 'USER';
   const isOwner = user?.isOwner || false;
@@ -185,6 +187,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const parent = activeModules.find((m) => m.route && pathname.startsWith(m.route + '/'));
     if (parent) setExpandedModule(parent.route);
   }, [pathname, activeModules]);
+
+  // ═══ Impersonation : récupère le nom réel de l'acteur ═══
+  useEffect(() => {
+    const raw = localStorage.getItem('impersonation');
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        setImpersonation(parsed);
+      } catch { /* ignore */ }
+    } else {
+      setImpersonation(null);
+    }
+  }, [pathname]);
 
   // ═══ Ferme drawer mobile à chaque navigation ═══
   useEffect(() => {
@@ -444,12 +459,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-semibold text-white truncate leading-none">
-                  {user?.name || 'Utilisateur'}
-                </p>
-                <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                  {role}{isOwner ? ' · owner' : ''}
-                </p>
+                {impersonation ? (
+                  <>
+                    <p className="text-[12px] font-semibold text-white truncate leading-none">
+                      {user?.name || 'Utilisateur'}
+                    </p>
+                    <p className="text-[10px] text-red-400 truncate mt-0.5 font-bold">
+                      👁 Impersonné par Elikanto
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[12px] font-semibold text-white truncate leading-none">
+                      {user?.name || 'Utilisateur'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                      {role}{isOwner ? ' · owner' : ''}
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -477,6 +505,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ═══════ MAIN ═══════ */}
       <div className={`flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-200 ${collapsed ? 'lg:ml-16' : 'lg:ml-60'}`}>
+
+        {/* ═══ BANDEAU IMPERSONATION (si actif) ═══ */}
+        <ImpersonationBanner />
 
         {/* ═══ HEADER ═══ */}
         <header className="sticky top-0 z-30 h-14 bg-white border-b border-slate-200 flex items-center px-3 sm:px-4 gap-3">

@@ -264,6 +264,76 @@ export class OrganizationsService {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════
+  //  IMPERSONATION — se connecter en tant qu'admin d'un tenant
+  // ═══════════════════════════════════════════════════════════
+
+  async impersonate(id: string, actor: any) {
+    // Seul le SUPER_ADMIN owner peut impersonner
+    if (actor.role !== 'SUPER_ADMIN' || !actor.isOwner) {
+      throw new ForbiddenException('Seul un SUPER_ADMIN owner peut utiliser l\'impersonation');
+    }
+
+    const org = await this.prisma.organization.findUnique({
+      where: { id },
+      include: {
+        users: {
+          where: { isOwner: true, isActive: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!org) throw new NotFoundException('Organisation introuvable');
+    if (org.type === 'INTERNE') {
+      throw new ForbiddenException('Impossible d\'impersonner l\'organisation interne');
+    }
+    if (org.users.length === 0) {
+      throw new BadRequestException(
+        'Aucun administrateur actif dans cette organisation. Créez-en un d\'abord.',
+      );
+    }
+
+    const targetUser = org.users[0];
+
+    // Audit log de l'impersonation
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actor.userId,
+        organizationId: org.id,
+        action: 'IMPERSONATE_START',
+        entity: 'Organization',
+        entityId: org.id,
+        newValue: JSON.stringify({
+          targetUserId: targetUser.id,
+          targetEmail: targetUser.email,
+          orgName: org.name,
+        }),
+      },
+    });
+
+    return {
+      targetUser: {
+        id: targetUser.id,
+        email: targetUser.email,
+        name: targetUser.name,
+        role: targetUser.role,
+        organizationId: org.id,
+        isOwner: targetUser.isOwner,
+      },
+      organization: {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        type: org.type,
+      },
+      impersonatedBy: {
+        userId: actor.userId,
+        role: actor.role,
+      },
+    };
+  }
+
   async remove(id: string, user: any) {
     this.assertCanManage(user);
 
