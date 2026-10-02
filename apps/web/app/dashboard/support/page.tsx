@@ -39,6 +39,30 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 function prioMeta(p: string) { return PRIORITY_META[p] || PRIORITY_META.NORMAL; }
+
+const SLA_META: Record<string, { label: string; bg: string; text: string; icon: string }> = {
+  OK:         { label: 'SLA OK',        bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
+  WARNING:    { label: 'SLA < 4h',      bg: 'bg-amber-100',   text: 'text-amber-700',   icon: '⏰' },
+  URGENT:     { label: 'SLA < 1h',      bg: 'bg-orange-100',  text: 'text-orange-700',  icon: '🔥' },
+  BREACHED:   { label: 'SLA DÉPASSÉ',   bg: 'bg-red-100',     text: 'text-red-700',     icon: '🚨' },
+  MET:        { label: 'SLA respecté',  bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
+  NO_SLA:     { label: '',              bg: '',               text: '',                 icon: '' },
+};
+
+function slaMeta(s?: string) {
+  return SLA_META[s || 'NO_SLA'] || SLA_META.NO_SLA;
+}
+
+function slaRemaining(ticket: any) {
+  if (!ticket?.slaResolutionDeadline) return null;
+  if (['RESOLVED', 'CLOSED'].includes(ticket.status)) return null;
+  const ms = new Date(ticket.slaResolutionDeadline).getTime() - Date.now();
+  if (ms < 0) return 'Dépassé';
+  const h = Math.floor(ms / (60 * 60 * 1000));
+  if (h < 1) return `${Math.floor(ms / 60000)}min`;
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}j`;
+}
 function statusMeta(s: string) { return STATUS_META[s] || STATUS_META.OPEN; }
 
 function timeAgo(d: string) {
@@ -54,6 +78,25 @@ function timeAgo(d: string) {
 // ═══════════════════════════════════════════════════════════════
 //  PAGE PRINCIPALE
 // ═══════════════════════════════════════════════════════════════
+
+interface TicketWithSla {
+  id: string;
+  reference: string;
+  title: string;
+  status: string;
+  priority: string;
+  category: string;
+  slaStatus?: string;
+  slaResolutionDeadline?: string;
+  firstResponseAt?: string;
+  resolvedAt?: string;
+  tags?: string[];
+  organization?: any;
+  createdBy?: any;
+  assignedTo?: any;
+  _count?: { messages: number };
+  updatedAt: string;
+}
 
 export default function SupportPage() {
   const [user, setUser] = useState<any>(null);
@@ -211,6 +254,22 @@ export default function SupportPage() {
                               {pm.label.toUpperCase()}
                             </span>
                           </div>
+                          {(() => {
+                            const slm = slaMeta(t.slaStatus);
+                            if (!slm.label) return null;
+                            const rem = slaRemaining(t);
+                            return (
+                              <div className="flex items-center gap-1 mb-1.5">
+                                <span className={'inline-flex items-center gap-1 text-[9px] font-black tracking-wider px-1.5 py-0.5 rounded ' + slm.bg + ' ' + slm.text}>
+                                  <span>{slm.icon}</span>
+                                  <span>{slm.label}</span>
+                                </span>
+                                {rem && (
+                                  <span className={'text-[9px] font-bold ' + slm.text}>· {rem}</span>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <h4 className="font-bold text-slate-900 text-sm line-clamp-2 mb-2">{t.title}</h4>
                           <div className="flex items-center justify-between text-[10px] text-slate-400">
                             <span className="truncate">{t.organization?.name}</span>
@@ -324,6 +383,22 @@ export default function SupportPage() {
                           {pm.label.toUpperCase()}
                         </span>
                       )}
+                      {(() => {
+                        const slm = slaMeta(t.slaStatus);
+                        if (!slm.label) return null;
+                        const rem = slaRemaining(t);
+                        return (
+                          <>
+                            <span className={'inline-flex items-center gap-1 text-[9px] font-black tracking-wider px-2 py-0.5 rounded-md ' + slm.bg + ' ' + slm.text}>
+                              <span>{slm.icon}</span>
+                              <span>{slm.label}</span>
+                            </span>
+                            {rem && (
+                              <span className={'text-[9px] font-bold ' + slm.text}>· {rem}</span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                     <h3 className="font-bold text-slate-900 text-sm truncate">{t.title}</h3>
                     <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-400">

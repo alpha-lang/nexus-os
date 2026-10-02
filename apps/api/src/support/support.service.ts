@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { computeSla, slaStatus } from './sla.util';
 
 const STATUS_FLOW = ['OPEN', 'IN_PROGRESS', 'WAITING', 'RESOLVED', 'CLOSED'];
 
@@ -41,7 +42,7 @@ export class SupportService {
       ];
     }
 
-    return this.prisma.ticket.findMany({
+    const tickets = await this.prisma.ticket.findMany({
       where,
       include: {
         organization: { select: { id: true, name: true, type: true } },
@@ -52,6 +53,8 @@ export class SupportService {
       orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
       take: 200,
     });
+
+    return tickets.map((t) => ({ ...t, slaStatus: slaStatus(t) }));
   }
 
   async findOne(user: any, id: string) {
@@ -81,16 +84,21 @@ export class SupportService {
       throw new ForbiddenException('Organisation requise');
     }
     const reference = await this.genReference();
+    const priority = data.priority || 'NORMAL';
+    const sla = computeSla(priority);
+
     return this.prisma.ticket.create({
       data: {
         reference,
         title: data.title,
         description: data.description || null,
         category: data.category || 'OTHER',
-        priority: data.priority || 'NORMAL',
+        priority,
         status: 'OPEN',
         organizationId: data.organizationId || user.organizationId,
         createdById: user.userId,
+        tags: Array.isArray(data.tags) ? data.tags : [],
+        ...sla,
       },
       include: { organization: true, createdBy: true },
     });
@@ -114,6 +122,10 @@ export class SupportService {
     // Trace les transitions
     if (data.status === 'RESOLVED' && ticket.status !== 'RESOLVED') {
       updateData.resolvedAt = new Date();
+      // Marquer SLA breached si on a dépassé la deadline de résolution
+      if (ticket.slaResolutionDeadline && new Date() > new Date(ticket.slaResolutionDeadline)) {
+        updateData.slaBreached = true;
+      }
     }
     if (data.status === 'CLOSED' && ticket.status !== 'CLOSED') {
       updateData.closedAt = new Date();
@@ -123,12 +135,12 @@ export class SupportService {
   }
 
   async addMessage(user: any, ticketId: string, data: any) {
-    await this.findOne(user, ticketId);
+    const ticket = await this.findOne(user, ticketId);
 
     // Un tenant ne peut pas écrire en interne
     const isInternal = this.isSuperAdmin(user) ? !!data.isInternal : false;
 
-    return this.prisma.ticketMessage.create({
+    const msg = await this.prisma.ticketMessage.create({
       data: {
         ticketId,
         authorId: user.userId,
@@ -137,6 +149,16 @@ export class SupportService {
       },
       include: { author: { select: { id: true, email: true, name: true, role: true } } },
     });
+
+    // Si c'est la 1ère réponse staff et pas une note interne → marquer firstResponseAt
+    if (this.isSuperAdmin(user) && !isInternal && !ticket.firstResponseAt) {
+      await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: { firstResponseAt: new Date() },
+      });
+    }
+
+    return msg;
   }
 
   async remove(user: any, id: string) {

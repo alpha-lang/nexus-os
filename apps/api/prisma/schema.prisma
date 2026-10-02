@@ -73,6 +73,7 @@ model Organization {
   adminNotes      String?
 
   billingConfig BillingConfig?
+  ticketMacros  TicketMacro[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -358,6 +359,13 @@ model Ticket {
   createdBy      User?           @relation("TicketCreatedBy", fields: [createdById], references: [id])
   assignedToId   String?
   assignedTo     User?           @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  // ─── SLA tracking ───
+  slaResponseDeadline    DateTime?
+  slaResolutionDeadline  DateTime?
+  firstResponseAt        DateTime?
+  slaBreached            Boolean   @default(false)
+  tags                   String[]  @default([])
   resolvedAt     DateTime?
   closedAt       DateTime?
   createdAt      DateTime        @default(now())
@@ -958,6 +966,21 @@ model Interaction {
 // ═══════════════════════════════════════════════════════
 //  AUTH — Refresh tokens (15 min access + 7j refresh)
 // ═══════════════════════════════════════════════════════
+
+model TicketMacro {
+  id             String          @id @default(cuid())
+  name           String
+  content        String
+  category       TicketCategory?
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  usageCount     Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([organizationId])
+  @@map("TicketMacro")
+}
 
 model RefreshToken {
   id             String   @id @default(cuid())
