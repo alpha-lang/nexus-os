@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../../../lib/api';
+import ConfirmDialog from '../../../components/ConfirmDialog';
 
 function humanSize(mo: number) {
   if (mo < 0.001) return { v: Math.round(mo * 1024 * 1024).toString(), u: 'o' };
@@ -62,6 +63,10 @@ export default function StoragePage() {
   const [alertFilter, setAlertFilter] = useState<Alert | 'all'>('all');
   const [detail, setDetail] = useState<Quota | null>(null);
 
+  // Suppression backup
+  const [backupToDelete, setBackupToDelete] = useState<BackupRow | null>(null);
+  const [isDeletingBackup, setIsDeletingBackup] = useState(false);
+
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
 
   async function load() {
@@ -98,6 +103,23 @@ export default function StoragePage() {
     a.href = url; a.download = fileName || `backup-${id}.sql`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+  }
+
+  async function deleteBackup(id: string) {
+    setIsDeletingBackup(true);
+    const res = await apiFetch(`/api/storage/backup/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setIsDeletingBackup(false);
+    setBackupToDelete(null);
+    if (res.ok) {
+      showToast('Sauvegarde supprimee');
+      await load();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      showToast(d.message || 'Erreur lors de la suppression');
+    }
   }
 
   const stats = useMemo(() => {
@@ -394,12 +416,21 @@ export default function StoragePage() {
                           {new Date(b.createdAt).toLocaleDateString('fr-FR')} {new Date(b.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="px-4 py-2 text-center">
-                          <button
-                            onClick={() => downloadBackup(b.id, b.fileName)}
-                            className="text-blue-600 hover:underline font-bold text-[11px]"
-                          >
-                            Telecharger
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => downloadBackup(b.id, b.fileName)}
+                              className="text-blue-600 hover:underline font-bold text-[11px]"
+                            >
+                              Telecharger
+                            </button>
+                            <button
+                              onClick={() => setBackupToDelete(b)}
+                              className="text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded font-bold text-[11px] transition"
+                              title="Supprimer cette sauvegarde"
+                            >
+                              Supprimer
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -494,6 +525,19 @@ export default function StoragePage() {
           </div>
         </div>
       )}
+
+      {/* Confirmation suppression backup */}
+      <ConfirmDialog
+        open={!!backupToDelete}
+        title="Supprimer la sauvegarde"
+        message={`Supprimer definitivement "${backupToDelete?.fileName}" ? Cette action est irreversible.`}
+        onClose={() => setBackupToDelete(null)}
+        onConfirm={() => backupToDelete && deleteBackup(backupToDelete.id)}
+        isLoading={isDeletingBackup}
+        confirmLabel="Supprimer"
+        loadingLabel="Suppression..."
+        variant="danger"
+      />
     </div>
   );
 }
