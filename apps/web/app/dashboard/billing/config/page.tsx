@@ -116,6 +116,37 @@ export default function BillingConfigPage() {
     }
   }
 
+  async function openInvoicePreview() {
+    if (!selectedOrg) return;
+    const body = {
+      subtotal: 100000,
+      organizationName: selectedOrgData?.name,
+      customer: {
+        name: 'Client Exemple',
+        email: 'client@exemple.mg',
+        phone: '+261 34 00 000 00',
+        city: 'Antananarivo',
+      },
+      items: [
+        { description: 'Module Caisse — Octobre 2026', quantity: 1, unitPrice: 30000, total: 30000 },
+        { description: 'Module Réservation — Octobre 2026', quantity: 1, unitPrice: 25000, total: 25000 },
+        { description: 'Module Stock — Octobre 2026', quantity: 1, unitPrice: 45000, total: 45000 },
+      ],
+    };
+
+    const res = await apiFetch(`/api/billing-config/organization/${selectedOrg}/preview-html`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const html = await res.text();
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+    }
+  }
+
   if (loading) {
     return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-4 border-teal-400 border-t-transparent"></div></div>;
   }
@@ -182,7 +213,7 @@ export default function BillingConfigPage() {
             <div className="space-y-3">
               <Field label="Adresse ligne 1">
                 <input type="text" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)}
-                  className="input" placeholder="Lot II M 12 Bis" />
+                  className="input" placeholder="N° de rue + nom de rue" />
               </Field>
               <Field label="Adresse ligne 2" hint="Optionnel">
                 <input type="text" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)}
