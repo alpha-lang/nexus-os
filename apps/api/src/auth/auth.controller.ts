@@ -5,6 +5,7 @@ import { RefreshTokenService } from './refresh-token.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -14,12 +15,14 @@ export class AuthController {
   ) {}
 
   // Anti brute-force : max 5 tentatives / 15 min / IP
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 900_000 } })
   @Post('login')
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
+  @Public()
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -28,6 +31,7 @@ export class AuthController {
 
   // ═══ Refresh : regénère un access token à partir d'un refresh token ═══
   // Anti brute-force : 10 tentatives / 15 min / IP
+  @Public()
   @Throttle({ default: { limit: 10, ttl: 900_000 } })
   @Post('refresh')
   async refresh(@Body() body: { refreshToken: string }, @Req() req: any) {
@@ -38,6 +42,7 @@ export class AuthController {
   }
 
   // ═══ Logout : révoque le refresh token ═══
+  @Public()
   @Post('logout')
   async logout(@Body() body: { refreshToken?: string }) {
     if (body.refreshToken) {

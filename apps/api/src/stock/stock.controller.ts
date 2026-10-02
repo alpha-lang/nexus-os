@@ -1,11 +1,13 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { StockService } from './stock.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { ApiKeyOrJwtGuard } from '../common/guards/api-key.guard';
+import { ScopeGuard } from '../common/guards/scope.guard';
+import { RequireScope } from '../common/decorators/require-scope.decorator';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('stock')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(ApiKeyOrJwtGuard, PermissionsGuard, ScopeGuard)
 export class StockController {
   constructor(private readonly service: StockService) {}
 
@@ -44,9 +46,9 @@ export class StockController {
   @Delete('suppliers/:id') removeSupplier(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeSupplier(u, id); }
 
   // ITEMS
-  @Get('items') items(@CurrentUser() u: any, @Query() q: any) { return this.service.findAllItems(u, q); }
-  @Get('items/:id') item(@CurrentUser() u: any, @Param('id') id: string) { return this.service.findOneItem(u, id); }
-  @Post('items') createItem(@CurrentUser() u: any, @Body() b: any) { return this.service.createItem(u, b); }
+  @Get('items') @RequireScope('READ') items(@CurrentUser() u: any, @Query() q: any) { return this.service.findAllItems(u, q); }
+  @Get('items/:id') @RequireScope('READ') item(@CurrentUser() u: any, @Param('id') id: string) { return this.service.findOneItem(u, id); }
+  @Post('items') @RequireScope('WRITE') createItem(@CurrentUser() u: any, @Body() b: any) { return this.service.createItem(u, b); }
   @Patch('items/:id') updateItem(@CurrentUser() u: any, @Param('id') id: string, @Body() b: any) { return this.service.updateItem(u, id, b); }
   @Delete('items/:id') removeItem(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeItem(u, id); }
 

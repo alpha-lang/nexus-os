@@ -101,6 +101,7 @@ model Organization {
   cashMovements      CashMovement[]
   cashSessions       CashSession[]
   featureFlagOverrides FeatureFlagOverride[]
+  apiKeys       ApiKey[]
 }
 
 model Subscription {
@@ -193,6 +194,7 @@ model User {
   auditLogs             AuditLog[]
   tickets               Ticket[]         @relation("AssignedTickets")
   ticketsCreated        Ticket[]         @relation("TicketCreatedBy")
+  apiKeysCreated        ApiKey[]         @relation("ApiKeyCreatedBy")
   ticketMessages        TicketMessage[]  @relation("TicketMessageAuthor")
   documents             Document[]
   partners              Partner[]
@@ -1073,4 +1075,35 @@ model ChangelogEntry {
 
   @@index([isActive, publishedAt])
   @@map("ChangelogEntry")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  API KEYS — Accès programmatique par tenant
+// ═══════════════════════════════════════════════════════════════
+
+enum ApiKeyScope {
+  READ
+  WRITE
+  ADMIN
+}
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  name           String
+  prefix         String       @unique
+  keyHash        String       @unique
+  scopes         ApiKeyScope[] @default([READ])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String?
+  createdBy      User?        @relation("ApiKeyCreatedBy", fields: [createdById], references: [id])
+  lastUsedAt     DateTime?
+  lastUsedIp     String?
+  expiresAt      DateTime?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, isActive])
+  @@map("ApiKey")
 }

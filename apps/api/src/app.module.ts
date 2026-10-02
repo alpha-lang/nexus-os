@@ -2,6 +2,9 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { MaintenanceMiddleware } from './maintenance/maintenance.middleware';
 import { APP_GUARD } from '@nestjs/core';
+import { ApiKeyOrJwtGuard } from './common/guards/api-key.guard';
+import { ScopeGuard } from './common/guards/scope.guard';
+import { GuardsModule } from './common/guards/guards.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { createThrottlerConfig } from './common/throttler/throttler.config';
 
@@ -32,6 +35,7 @@ import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { SupportModule } from './support/support.module';
 import { ChangelogModule } from './changelog/changelog.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
 
 @Module({
   imports: [
@@ -62,12 +66,22 @@ import { ChangelogModule } from './changelog/changelog.module';
     MaintenanceModule,
     SupportModule,
     ChangelogModule,
+    ApiKeysModule,
+    GuardsModule,
     JwtModule.register({ secret: process.env.JWT_SECRET }),
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ApiKeyOrJwtGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ScopeGuard,
     },
   ],
 })

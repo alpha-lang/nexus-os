@@ -2,16 +2,19 @@ import {
   Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards,
 } from '@nestjs/common';
 import { CustomersService } from '../customers/customers.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { ApiKeyOrJwtGuard } from '../common/guards/api-key.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { ScopeGuard } from '../common/guards/scope.guard';
+import { RequireScope } from '../common/decorators/require-scope.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('partners')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(ApiKeyOrJwtGuard, PermissionsGuard, ScopeGuard)
 export class PartnersController {
   constructor(private readonly service: CustomersService) {}
 
   @Get()
+  @RequireScope('READ')
   findAll(
     @CurrentUser() u: any,
     @Query('type') type?: string,
@@ -20,65 +23,39 @@ export class PartnersController {
     @Query('search') search?: string,
   ) {
     return this.service.findAllPartners(u, {
-      type,
-      cursor,
+      type, cursor,
       take: take ? parseInt(take, 10) : undefined,
       search,
     });
   }
 
-  @Post()
-  create(@CurrentUser() u: any, @Body() b: any) {
-    return this.service.createPartner(u, b);
-  }
-
   @Get(':id/full')
+  @RequireScope('READ')
   findFull(@CurrentUser() u: any, @Param('id') id: string) {
     return this.service.findFullPartner(u, id);
   }
 
   @Get(':id')
+  @RequireScope('READ')
   findOne(@CurrentUser() u: any, @Param('id') id: string) {
     return this.service.findOnePartner(u, id);
   }
 
+  @Post()
+  @RequireScope('WRITE')
+  create(@CurrentUser() u: any, @Body() b: any) {
+    return this.service.createPartner(u, b);
+  }
+
   @Patch(':id')
+  @RequireScope('WRITE')
   update(@CurrentUser() u: any, @Param('id') id: string, @Body() b: any) {
     return this.service.update(id, b, u);
   }
 
   @Delete(':id')
+  @RequireScope('ADMIN')
   remove(@CurrentUser() u: any, @Param('id') id: string) {
     return this.service.remove(id, u);
-  }
-
-  @Post(':id/tags')
-  addTag(@CurrentUser() u: any, @Param('id') id: string, @Body() b: { tag: string }) {
-    return this.service.addTag(id, b.tag, u);
-  }
-
-  @Delete(':id/tags/:tag')
-  removeTag(@CurrentUser() u: any, @Param('id') id: string, @Param('tag') tag: string) {
-    return this.service.removeTag(id, decodeURIComponent(tag), u);
-  }
-
-  @Post(':id/notes')
-  addNote(@CurrentUser() u: any, @Param('id') id: string, @Body() b: { content: string }) {
-    return this.service.addNote(id, b.content, u);
-  }
-
-  @Delete(':id/notes/:noteId')
-  deleteNote(@CurrentUser() u: any, @Param('id') id: string, @Param('noteId') noteId: string) {
-    return this.service.deleteNote(id, noteId, u);
-  }
-
-  @Post(':id/documents')
-  addDocument(@CurrentUser() u: any, @Param('id') id: string, @Body() b: any) {
-    return this.service.addDocument(id, b, u);
-  }
-
-  @Delete(':id/documents/:docId')
-  deleteDocument(@CurrentUser() u: any, @Param('id') id: string, @Param('docId') docId: string) {
-    return this.service.deleteDocument(id, docId, u);
   }
 }

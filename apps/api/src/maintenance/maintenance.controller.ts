@@ -2,12 +2,14 @@ import { Controller, Get, Patch, Body, UseGuards, Req } from '@nestjs/common';
 import { MaintenanceService } from './maintenance.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('maintenance')
 export class MaintenanceController {
   constructor(private readonly service: MaintenanceService) {}
 
   // Public : utilisé par le middleware et la page /maintenance
+  @Public()
   @Get('status')
   status() { return this.service.isMaintenanceOn(); }
 

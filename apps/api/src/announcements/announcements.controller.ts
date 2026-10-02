@@ -2,12 +2,14 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req } fro
 import { AnnouncementsService } from './announcements.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('announcements')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AnnouncementsController {
   constructor(private readonly service: AnnouncementsService) {}
 
+  @Public()
   @Get('active')
   getActive(@Req() req: any) { return this.service.getActive(req.user); }
 

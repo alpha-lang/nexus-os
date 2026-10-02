@@ -2,12 +2,14 @@ import {
   Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards,
 } from '@nestjs/common';
 import { HotelService } from './hotel.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { ApiKeyOrJwtGuard } from '../common/guards/api-key.guard';
+import { ScopeGuard } from '../common/guards/scope.guard';
+import { RequireScope } from '../common/decorators/require-scope.decorator';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('hotel')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(ApiKeyOrJwtGuard, PermissionsGuard, ScopeGuard)
 export class HotelController {
   constructor(private readonly service: HotelService) {}
 
@@ -44,6 +46,7 @@ export class HotelController {
 
   // RESERVATIONS
   @Get('reservations')
+  @RequireScope('READ')
   reservations(
     @CurrentUser() u: any,
     @Query('status') status?: string,
@@ -54,8 +57,8 @@ export class HotelController {
   ) {
     return this.service.findAllReservations(u, { status, from, to, cursor, take });
   }
-  @Get('reservations/:id') reservation(@CurrentUser() u: any, @Param('id') id: string) { return this.service.findOneReservation(u, id); }
-  @Post('reservations') createReservation(@CurrentUser() u: any, @Body() b: any) { return this.service.createReservation(u, b); }
+  @Get('reservations/:id') @RequireScope('READ') reservation(@CurrentUser() u: any, @Param('id') id: string) { return this.service.findOneReservation(u, id); }
+  @Post('reservations') @RequireScope('WRITE') createReservation(@CurrentUser() u: any, @Body() b: any) { return this.service.createReservation(u, b); }
   @Patch('reservations/:id') updateReservation(@CurrentUser() u: any, @Param('id') id: string, @Body() b: any) { return this.service.updateReservation(u, id, b); }
   @Delete('reservations/:id') removeReservation(@CurrentUser() u: any, @Param('id') id: string) { return this.service.removeReservation(u, id); }
 
