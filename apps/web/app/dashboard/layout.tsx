@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import CommandPalette from '../../components/CommandPalette';
 import AnnouncementBanner from '../../components/AnnouncementBanner';
 import ChangelogDrawer from '../../components/ChangelogDrawer';
+import StatusIndicator from '../../components/StatusIndicator';
 
 function slugify(s: string) {
   return s.toLowerCase()
@@ -524,6 +525,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <kbd className="px-1 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono text-slate-400">⌘K</kbd>
           </button>
 
+          <StatusIndicator />
+
           {contextAction && (
             <a
               href={contextAction.href}
@@ -582,16 +585,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
 
-        <footer className="hidden lg:flex h-7 items-center gap-4 px-4 bg-slate-950 text-slate-500 text-[11px] border-t border-slate-800">
+        <footer className="hidden lg:flex h-7 items-center gap-3 px-4 bg-slate-950 text-slate-500 text-[11px] border-t border-slate-800">
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span>Connecté</span>
           </div>
           <span className="text-slate-700">·</span>
-          <span>v1.0.0</span>
+          <span className="font-mono">v1.0.0</span>
           <span className="text-slate-700">·</span>
-          <span>{role.toLowerCase()}</span>
+          <span className="font-mono">{role.toLowerCase()}</span>
+          {orgName && (
+            <>
+              <span className="text-slate-700">·</span>
+              <span className="truncate max-w-[200px]">{orgName}</span>
+            </>
+          )}
           <div className="ml-auto flex items-center gap-3">
+            <span className="text-slate-600">⌘K Rechercher</span>
+            <span className="text-slate-700">·</span>
             <span>© {new Date().getFullYear()} NEXUS OS</span>
           </div>
         </footer>
