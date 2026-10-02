@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { apiFetch, logout as apiLogout } from '../../lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 import CommandPalette from '../../components/CommandPalette';
+import AnnouncementBanner from '../../components/AnnouncementBanner';
 import ImpersonationBanner from '../../components/ImpersonationBanner';
 
 // ═════════════════════════════════════════════════════════════
@@ -41,6 +42,9 @@ const ROUTE_LABELS: Record<string, string> = {
   billing: 'Facturation',
   storage: 'Stockage',
   'tenant-admins': 'Admins des Tenants',
+  announcements: 'Annonces',
+  'feature-flags': 'Feature Flags',
+  maintenance: 'Maintenance',
   crm: 'CRM',
   partners: 'Partenaires',
   interactions: 'Interactions',
@@ -232,9 +236,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { path: '/dashboard/billing', label: 'Facturation', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
     { path: '/dashboard/storage', label: 'Stockage', icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4' },
     { path: '/dashboard/tenant-admins', label: 'Admins des Tenants', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+    { path: '/dashboard/announcements', label: 'Annonces', icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z' },
+    { path: '/dashboard/feature-flags', label: 'Feature Flags', icon: 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9' },
+    { path: '/dashboard/maintenance', label: 'Maintenance', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
     { path: '/dashboard/audit', label: 'Journal audit', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
     { path: '/dashboard/analytics', label: 'Analytics revenus', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
     { path: '/dashboard/sessions', label: 'Sessions actives', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+    { path: '/dashboard/monitoring', label: 'Monitoring', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
   ];
 
   const baseMenu = [
@@ -626,6 +634,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* ═══ MAIN CONTENT ═══ */}
         <main className="flex-1 p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 overflow-x-hidden w-full min-w-0">
+          <div className="mb-3"><AnnouncementBanner /></div>
           {children}
         </main>
 

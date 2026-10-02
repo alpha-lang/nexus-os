@@ -100,6 +100,7 @@ model Organization {
   cashRegisters      CashRegister[]
   cashMovements      CashMovement[]
   cashSessions       CashSession[]
+  featureFlagOverrides FeatureFlagOverride[]
 }
 
 model Subscription {
@@ -204,6 +205,7 @@ model User {
 
   // Multi-tenant : 1 email par organisation
   @@index([organizationId, email])
+  announcements         Announcement[]  @relation("AnnouncementCreatedBy")
 }
 
 model Permission {
@@ -925,4 +927,91 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("RefreshToken")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ANNONCES GLOBALES
+// ═══════════════════════════════════════════════════════════════
+
+enum AnnouncementType {
+  INFO
+  SUCCESS
+  WARNING
+  DANGER
+}
+
+enum AnnouncementTarget {
+  ALL
+  ORG_TYPE
+  SPECIFIC_ORGS
+}
+
+model Announcement {
+  id             String             @id @default(cuid())
+  title          String
+  message        String
+  type           AnnouncementType   @default(INFO)
+  target         AnnouncementTarget @default(ALL)
+  targetTypes    String?
+  targetOrgIds   String?
+  startsAt       DateTime           @default(now())
+  endsAt         DateTime?
+  isDismissible  Boolean            @default(true)
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  createdById    String?
+  createdBy      User?              @relation("AnnouncementCreatedBy", fields: [createdById], references: [id])
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("Announcement")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FEATURE FLAGS — Activation de features par tenant
+// ═══════════════════════════════════════════════════════════════
+
+model FeatureFlag {
+  id             String                 @id @default(cuid())
+  key            String                 @unique
+  label          String
+  description    String?
+  defaultEnabled Boolean                @default(false)
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  overrides      FeatureFlagOverride[]
+
+  @@map("FeatureFlag")
+}
+
+model FeatureFlagOverride {
+  id             String       @id @default(cuid())
+  flagId         String
+  flag           FeatureFlag  @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enabled        Boolean
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([flagId, organizationId])
+  @@map("FeatureFlagOverride")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MAINTENANCE MODE
+// ═══════════════════════════════════════════════════════════════
+
+model MaintenanceWindow {
+  id              String    @id @default(cuid())
+  isActive        Boolean   @default(false)
+  message         String    @default("La plateforme est en maintenance. Merci de revenir dans quelques minutes.")
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("MaintenanceWindow")
 }

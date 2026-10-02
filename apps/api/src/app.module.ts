@@ -1,4 +1,6 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { MaintenanceMiddleware } from './maintenance/maintenance.middleware';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { createThrottlerConfig } from './common/throttler/throttler.config';
@@ -24,6 +26,10 @@ import { CashModule } from './cash/cash.module';
 import { StockModule } from './stock/stock.module';
 import { AuditModule } from './audit/audit.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 
 @Module({
   imports: [
@@ -48,6 +54,11 @@ import { AnalyticsModule } from './analytics/analytics.module';
     StockModule,
     AuditModule,
     AnalyticsModule,
+    MonitoringModule,
+    AnnouncementsModule,
+    FeatureFlagsModule,
+    MaintenanceModule,
+    JwtModule.register({ secret: process.env.JWT_SECRET }),
   ],
   providers: [
     {
@@ -58,6 +69,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MaintenanceMiddleware).forRoutes('*');
     consumer.apply(LoggerMiddleware).forRoutes('*');
   }
 }

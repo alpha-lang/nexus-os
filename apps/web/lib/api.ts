@@ -100,22 +100,27 @@ export async function apiFetch(
   const url = typeof input === 'string' ? input : input.toString();
   const isApi = isApiUrl(url);
 
-  // 1ère tentative avec le token courant
   let res = await fetch(input, buildInit(init, getAccessToken(), isApi));
 
-  // Si 401 sur un appel API → tenter un refresh
   if (res.status === 401 && isApi && getRefreshToken()) {
     const newToken = await refreshAccessToken();
-
     if (newToken) {
-      // Retry avec le nouveau token
       res = await fetch(input, buildInit(init, newToken, isApi));
-    } else {
-      // Refresh échoué → redirect vers login (sauf si déjà sur /login)
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
-      }
+    } else if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login';
     }
+  }
+
+  // Maintenance : 503 sur un appel API
+  if (res.status === 503 && isApi && typeof window !== 'undefined') {
+    try {
+      const clone = res.clone();
+      const data = await clone.json();
+      if (data?.code === 'MAINTENANCE_MODE' && !window.location.pathname.startsWith('/maintenance')) {
+        sessionStorage.setItem('maintenance_info', JSON.stringify(data));
+        window.location.href = '/maintenance';
+      }
+    } catch { /* ignore */ }
   }
 
   return res;
